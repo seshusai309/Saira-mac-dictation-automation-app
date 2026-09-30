@@ -8,7 +8,7 @@ import SwiftUI
 /// Debug builds only. Run the binary with a folder to write into:
 ///
 /// ```bash
-/// SAIS_SNAPSHOT_DIR=/tmp/shots "…/SAI's Whisper.app/Contents/MacOS/SAIsWhisper"
+/// SAIRA_SNAPSHOT_DIR=/tmp/shots "…/Saira.app/Contents/MacOS/Saira"
 /// ```
 ///
 /// It draws views in-process with `cacheDisplay`, so AppKit-backed controls (fields, switches,
@@ -17,7 +17,7 @@ import SwiftUI
 @MainActor
 enum DesignSnapshots {
     static var directory: URL? {
-        ProcessInfo.processInfo.environment["SAIS_SNAPSHOT_DIR"].map { URL(fileURLWithPath: $0) }
+        ProcessInfo.processInfo.environment["SAIRA_SNAPSHOT_DIR"].map { URL(fileURLWithPath: $0) }
     }
 
     static func run(controller: DictationController) {
@@ -186,7 +186,7 @@ enum DesignSnapshots {
     }
 }
 
-import WhisperDictionary
+import SairaDictionary
 
 private enum AppliedCorrectionSample {
     /// `AppliedCorrection` has no public memberwise init, so decode one.

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The design system for SAI's Whisper — the retro edition.
+/// The design system for Saira — the retro edition.
 ///
 /// Direction: warm, editorial, a little analogue. The palette is Wispr Flow's own brand set,
 /// taken from their site's stylesheet — Lumen cream `#FFFFEB`, Vast charcoal `#1A1A1A`, Dawn

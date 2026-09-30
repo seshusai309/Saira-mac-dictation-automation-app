@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Dark frosted glass with one warm signal color, amber:
 ///
-/// `( ▂▅█▅▂ │ SAI's Whisper )`
+/// `( ▂▅█▅▂ │ Saira )`
 ///
 /// Small, and only two things: your voice as amber bars, fading at the ends, and the app's
 /// name. No icon, no timer, no status words, nothing that spins — a turning ring reads as a
@@ -223,7 +223,7 @@ struct FlowPill: View {
     }
 
     private var name: some View {
-        Text("SAI's Whisper")
+        Text("Saira")
             .font(DS.Font.pillName)
             .foregroundStyle(DS.Color.pillInk)
             .fixedSize()

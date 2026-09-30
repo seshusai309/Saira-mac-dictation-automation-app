@@ -157,7 +157,7 @@ struct GlobeKeyWarning: View {
                 Text("macOS also uses fn: right now it \(what).")
                     .font(DS.Font.bodyEmphasis)
                     .foregroundStyle(DS.Color.ink)
-                Text("In Keyboard settings, set “Press 🌐 key to” → Do Nothing, so only SAI's Whisper answers the key.")
+                Text("In Keyboard settings, set “Press 🌐 key to” → Do Nothing, so only Saira answers the key.")
                     .font(DS.Font.label)
                     .foregroundStyle(DS.Color.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)

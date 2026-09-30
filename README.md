@@ -1,4 +1,4 @@
-# SAI's Whisper
+# Saira
 
 **Your voice. Higher productivity.**
 Made by **Sai Sesha Reddy**.
@@ -30,15 +30,15 @@ xcode-select --install
 A window pops up — click **Install** and wait until it says it's done (5–15 minutes).
 If Terminal says *"already installed"*, that's fine — go on.
 
-### 3. Download and install SAI's Whisper
+### 3. Download and install Saira
 
 Copy this line, paste it into Terminal, press **Return**:
 
 ```
-git clone https://github.com/seshusai309/Saira-mac-dictation-automation-app.git ~/sais-whisper && ~/sais-whisper/install.sh
+git clone https://github.com/seshusai309/Saira-mac-dictation-automation-app.git ~/saira && ~/saira/install.sh
 ```
 
-Wait about a minute. When it says **Done**, SAI's Whisper is in your Applications folder and
+Wait about a minute. When it says **Done**, Saira is in your Applications folder and
 open.
 
 > **No `git`?** On the GitHub page, click the green **Code** button ▸ **Download ZIP**. Open the
@@ -47,7 +47,7 @@ open.
 
 ### 4. Allow it to work in every app *(one time)*
 
-Open **System Settings ▸ Privacy & Security ▸ Accessibility** and turn on **SAI's Whisper**.
+Open **System Settings ▸ Privacy & Security ▸ Accessibility** and turn on **Saira**.
 It switches on by itself — no restart needed.
 
 ### 5. Talk
@@ -60,16 +60,16 @@ Settings ▸ Startup).
 
 ### Good to know
 
-- **Prefer the fn key?** In SAI's Whisper ▸ Settings, pick **fn**. Then open System Settings ▸
+- **Prefer the fn key?** In Saira ▸ Settings, pick **fn**. Then open System Settings ▸
   Keyboard and set **"Press 🌐 key to"** to **Do Nothing** — otherwise macOS answers fn too.
   A quick tap of fn does nothing; *hold* it to dictate.
 - **Esc** cancels a dictation.
-- **Update to a newer version:** paste `cd ~/sais-whisper && git pull && ./install.sh`, then
+- **Update to a newer version:** paste `cd ~/saira && git pull && ./install.sh`, then
   turn Accessibility back on (step 4) — macOS asks again after every reinstall.
-- **Shortcut stopped working?** Open SAI's Whisper — if it says *"Your shortcut is off"*, click
+- **Shortcut stopped working?** Open Saira — if it says *"Your shortcut is off"*, click
   **Fix** and turn it on again in the window that opens.
-- **Uninstall:** quit it from the menu-bar icon, drag *SAI's Whisper* from Applications to the
-  Trash. Your history and dictionary are in `~/Library/Application Support/SAIsWhisper` if you
+- **Uninstall:** quit it from the menu-bar icon, drag *Saira* from Applications to the
+  Trash. Your history and dictionary are in `~/Library/Application Support/Saira` if you
   want those gone too.
 
 ---
@@ -77,7 +77,7 @@ Settings ▸ Startup).
 ## What's in it
 
 **The pill** — a small frosted-glass pill at the bottom of the screen: amber bars that move with
-your voice, and "SAI's Whisper". It pops up like a bubble only when you *hold* the shortcut, and
+your voice, and "Saira". It pops up like a bubble only when you *hold* the shortcut, and
 disappears the moment your text is typed. Optional voice bubbles rise off it as you talk
 (Settings ▸ Voice bubbles).
 
@@ -138,15 +138,15 @@ code follows and the traps worth knowing about.
 ```
 
 ```
-Sources/SAIsWhisper/
-├── SAIsWhisperApp.swift          @main, AppDelegate, menu bar
+Sources/Saira/
+├── SairaApp.swift          @main, AppDelegate, menu bar
 ├── Core/                         controller, shortcut tap, capture, mic devices, injector
 ├── Transcription/                engine protocol, Apple SpeechAnalyzer
 ├── Formatting/                   rule-based + on-device LLM cleanup, templates
 ├── Dictionary/                   the plain-text dictionary store
 ├── UI/                           design tokens, components, screens, the pill
 └── Support/                      settings, history, paths, login item, permissions, snapshots
-Sources/WhisperDictionary/        the correction engine, tested against shared/ vectors
+Sources/SairaDictionary/        the correction engine, tested against shared/ vectors
 install.sh                        the one-command installer from "Install it on your Mac"
 ```
 
@@ -163,12 +163,12 @@ permission is required.
 
 **Design review without screenshots:** debug builds render every screen, both themes and every
 pill state to PNGs:
-`SAIS_SNAPSHOT_DIR=~/Desktop/shots "$HOME/Library/Caches/SAIsWhisperBuild/SAI's Whisper.app/Contents/MacOS/SAIsWhisper"`
+`SAIRA_SNAPSHOT_DIR=~/Desktop/shots "$HOME/Library/Caches/SairaBuild/Saira.app/Contents/MacOS/Saira"`
 
 **Why Accessibility is asked again after each rebuild:** without an Apple Developer ID the app
 is ad-hoc signed, and macOS ties the permission to the signature. To stop that on your own Mac,
 create a self-signed certificate once — Keychain Access ▸ Certificate Assistant ▸ Create a
-Certificate…, name **SAI's Whisper Local Signing**, type **Code Signing** — and the Makefile
+Certificate…, name **Saira Local Signing**, type **Code Signing** — and the Makefile
 uses it automatically. A stuck permission resets with
 `tccutil reset Accessibility ai.sai.whisper` (always pass the bundle ID).
 
@@ -182,5 +182,5 @@ uses it automatically. A stuck permission resets with
 
 ## Credits
 
-SAI's Whisper is designed and developed by **Sai Sesha Reddy**. Its push-to-talk engine
+Saira is designed and developed by **Sai Sesha Reddy**. Its push-to-talk engine
 started from [murmur-youtube](https://github.com/per-simmons/murmur-youtube) by Pat Simmons.

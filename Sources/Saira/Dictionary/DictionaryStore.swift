@@ -1,4 +1,4 @@
-import WhisperDictionary
+import SairaDictionary
 import Foundation
 import Observation
 
@@ -131,7 +131,7 @@ final class DictionaryStore {
     }
 
     private static let header = """
-        # SAI's Whisper dictionary
+        # Saira dictionary
         #
         #   Anthropic                 a term — the engine is told this word exists
         #   cloud code -> Claude Code a correction — when you hear X, write Y

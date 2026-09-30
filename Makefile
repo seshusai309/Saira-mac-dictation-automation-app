@@ -1,4 +1,4 @@
-EXEC     := SAIsWhisper
+EXEC     := Saira
 CONFIG   := debug
 
 ## Build products live OUTSIDE this directory, for the same reason the .app does.
@@ -6,7 +6,7 @@ CONFIG   := debug
 ## If this tree is ever iCloud/file-provider synced (~/Desktop, ~/Documents), the provider
 ## mutates files inside .build while the compiler is using them — producing "input file was
 ## modified during the build" on random object files. ~/Library/Caches is never synced.
-SCRATCH  := $(HOME)/Library/Caches/SAIsWhisperBuild/scratch
+SCRATCH  := $(HOME)/Library/Caches/SairaBuild/scratch
 BUILD    := $(SCRATCH)/$(CONFIG)/$(EXEC)
 
 ## Toolchain workaround for a Mac with only the Command Line Tools (no full Xcode).
@@ -31,8 +31,8 @@ endif
 ## The bundle is assembled and signed OUTSIDE this directory on purpose: a file provider
 ## can stamp com.apple.FinderInfo onto files inside an .app faster than we can strip them,
 ## and codesign hard-refuses anything carrying it.
-STAGE    := $(HOME)/Library/Caches/SAIsWhisperBuild
-APPNAME  := SAI's Whisper.app
+STAGE    := $(HOME)/Library/Caches/SairaBuild
+APPNAME  := Saira.app
 BUNDLE   := $(STAGE)/$(APPNAME)
 CONTENTS := $(BUNDLE)/Contents
 
@@ -40,12 +40,12 @@ CONTENTS := $(BUNDLE)/Contents
 ## changes on every build — makes you re-grant after every `make`. Any *stable* identity fixes
 ## that, in order of preference:
 ##   1. a Developer ID, if the Mac has one;
-##   2. a self-signed "SAI's Whisper Local Signing" code-signing certificate (Keychain Access ▸
+##   2. a self-signed "Saira Local Signing" code-signing certificate (Keychain Access ▸
 ##      Certificate Assistant ▸ Create a Certificate… ▸ type Code Signing). Self-signed certs are
 ##      "not trusted", so it's looked up without -v — codesign doesn't need trust, TCC doesn't
 ##      either, it only needs the same certificate every time;
 ##   3. ad-hoc ("-"), which works but forgets the Accessibility grant on every rebuild.
-LOCAL_ID := SAI's Whisper Local Signing
+LOCAL_ID := Saira Local Signing
 SIGN_ID := $(shell security find-identity -v -p codesigning 2>/dev/null \
              | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)".*/\1/')
 ifeq ($(strip $(SIGN_ID)),)
@@ -90,7 +90,7 @@ app: build
 		"$(BUNDLE)"
 	@echo "built $(BUNDLE)  [signed: $(SIGN_ID)]"
 
-## Only ever targets the SAIsWhisper executable — never another dictation app.
+## Only ever targets the Saira executable — never another dictation app.
 run: app
 	@pkill -x $(EXEC) 2>/dev/null || true
 	@open "$(BUNDLE)"

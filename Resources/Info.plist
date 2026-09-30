@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>SAI's Whisper</string>
+	<string>Saira</string>
 	<key>CFBundleDisplayName</key>
-	<string>SAI's Whisper</string>
+	<string>Saira</string>
 	<key>CFBundleIdentifier</key>
 	<string>ai.sai.whisper</string>
 	<key>CFBundleExecutable</key>
-	<string>SAIsWhisper</string>
+	<string>Saira</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -23,14 +23,14 @@
 	<key>LSUIElement</key>
 	<false/>
 	<key>NSHumanReadableCopyright</key>
-	<string>SAI's Whisper · Sai Sesha Reddy</string>
+	<string>Saira · Sai Sesha Reddy</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>SAI's Whisper listens while you hold your shortcut so it can turn your speech into text.</string>
+	<string>Saira listens while you hold your shortcut so it can turn your speech into text.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>SAI's Whisper transcribes your speech on this Mac to type it where your cursor is.</string>
+	<string>Saira transcribes your speech on this Mac to type it where your cursor is.</string>
 </dict>
 </plist>

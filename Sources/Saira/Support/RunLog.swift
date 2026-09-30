@@ -1,4 +1,4 @@
-import WhisperDictionary
+import SairaDictionary
 import Foundation
 import Observation
 

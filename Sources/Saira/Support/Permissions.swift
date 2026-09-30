@@ -3,7 +3,7 @@ import AppKit
 import ApplicationServices
 import Foundation
 
-/// SAI's Whisper needs two grants, and neither can be worked around:
+/// Saira needs two grants, and neither can be worked around:
 /// - **Microphone** — obviously.
 /// - **Accessibility** — for both the `CGEventTap` (hotkey) and the AX text insert.
 ///
@@ -61,7 +61,7 @@ enum Permissions {
 
     /// What the fn / Globe key does on its own, from System Settings ▸ Keyboard: 0 do nothing,
     /// 1 change input source, 2 show emoji, 3 start (Apple's) dictation. Anything but 0 fights
-    /// SAI's Whisper for the key.
+    /// Saira for the key.
     static var globeKeyAction: Int {
         UserDefaults(suiteName: "com.apple.HIToolbox")?.integer(forKey: "AppleFnUsageType") ?? 0
     }

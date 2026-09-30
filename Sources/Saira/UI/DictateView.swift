@@ -54,7 +54,7 @@ private struct ShortcutOffBanner: View {
                 Text("Your shortcut is off")
                     .font(DS.Font.heading)
                     .foregroundStyle(DS.Color.ink)
-                Text("Turn on SAI's Whisper in System Settings ▸ Privacy & Security ▸ Accessibility so \(settings.shortcut.displayName) works in every app. It switches on here by itself — no restart. If it's already on but this doesn't go away, use Fix.")
+                Text("Turn on Saira in System Settings ▸ Privacy & Security ▸ Accessibility so \(settings.shortcut.displayName) works in every app. It switches on here by itself — no restart. If it's already on but this doesn't go away, use Fix.")
                     .font(DS.Font.label)
                     .foregroundStyle(DS.Color.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)

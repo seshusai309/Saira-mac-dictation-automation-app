@@ -7,7 +7,7 @@ cold: mostly things that look wrong but aren't, and things that look fine and wi
 
 ## What this is
 
-**SAI's Whisper** — push-to-talk dictation for macOS. Hold ⌥ Space, talk, let go, and cleaned
+**Saira** — push-to-talk dictation for macOS. Hold ⌥ Space, talk, let go, and cleaned
 text is typed into whatever had focus. Swift 6, SwiftUI, macOS 26+. Bundle ID `ai.sai.whisper`.
 
 Made by Sai Sesha Reddy. The push-to-talk engine started from murmur-youtube by Pat Simmons;
@@ -24,7 +24,7 @@ SDK SwiftUI's `@State` is a macro whose plugin only ships with Xcode. The Makefi
 `--build-system native` against the macOS 26 SDK, and gives `make test` the swift-testing
 framework path that the non-default SDK loses. With full Xcode: `make SWIFT_FLAGS= TEST_FLAGS=`.
 
-Build products live in `~/Library/Caches/SAIsWhisperBuild`, never in the repo — if the repo is
+Build products live in `~/Library/Caches/SairaBuild`, never in the repo — if the repo is
 ever in an iCloud-synced folder, the sync engine mutates files mid-compile and corrupts
 signatures.
 
@@ -34,7 +34,7 @@ signatures.
 
 **`shared/dictionary-test-vectors.json` is the specification for correction behaviour.**
 Change the vectors first, watch `make test` go red, then make it green. The copy in
-`Tests/WhisperDictionaryTests/` must match `shared/` — CI checks.
+`Tests/SairaDictionaryTests/` must match `shared/` — CI checks.
 
 If you touch the regexes: NFC-normalize both pattern and text (macOS hands back decomposed
 strings, and an accented trigger silently never fires otherwise), and stay in the safe subset —
@@ -45,7 +45,7 @@ fixed-length lookbehind, lookahead, `\p{L}`, `$1`–`$9`.
 
 ## Design system
 
-`Sources/SAIsWhisper/UI/DesignSystem.swift` defines every color, font, size, radius, shadow and
+`Sources/Saira/UI/DesignSystem.swift` defines every color, font, size, radius, shadow and
 duration. **Views must not contain literal values** — add a token instead.
 
 Direction: the **retro edition** of a Wispr Flow–style app. The palette is Wispr Flow's own
@@ -66,7 +66,7 @@ skirt, a mono tape counter, a segmented LED meter. Rules:
 Review changes with the snapshot renderer (debug builds only) rather than by eye in one theme:
 
 ```bash
-make app && SAIS_SNAPSHOT_DIR=/path/to/shots "$HOME/Library/Caches/SAIsWhisperBuild/SAI's Whisper.app/Contents/MacOS/SAIsWhisper"
+make app && SAIRA_SNAPSHOT_DIR=/path/to/shots "$HOME/Library/Caches/SairaBuild/Saira.app/Contents/MacOS/Saira"
 ```
 
 It draws in-process with `cacheDisplay`, so it needs no Screen Recording permission, and it
@@ -114,7 +114,7 @@ the audio thread calls it. See `MicTest.start`.
 
 **Code signing is load-bearing.** TCC stores a code-signing *requirement*. Ad-hoc signatures
 change every build, so the Accessibility toggle stays **on** while the app is untrusted. The
-Makefile prefers a Developer ID, then a self-signed "SAI's Whisper Local Signing" identity,
+Makefile prefers a Developer ID, then a self-signed "Saira Local Signing" identity,
 then ad-hoc; don't replace that with `--sign -`. To reset a wedged
 grant: `tccutil reset Accessibility ai.sai.whisper` — never omit the bundle ID, which wipes every
 app on the machine — then ⌘Q System Settings before reopening.

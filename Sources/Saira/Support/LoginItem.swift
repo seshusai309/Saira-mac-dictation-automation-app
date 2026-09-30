@@ -24,6 +24,7 @@ final class LoginItem {
     private(set) var lastError: String?
 
     private static let didSetUpKey = "loginItemSetUp"
+    private static let registeredPathKey = "loginItemRegisteredPath"
 
     private init() {
         refresh()
@@ -57,21 +58,34 @@ final class LoginItem {
         refresh()
     }
 
-    /// Turns "Start at login" on the first time the app ever runs.
+    /// Turns "Start at login" on the first time the app ever runs — and re-registers it if
+    /// the app has moved or been renamed since, so macOS launches *this* copy at login rather
+    /// than a path that no longer exists.
     func enableOnFirstLaunch() {
         let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: Self.didSetUpKey) else { return }
-        defaults.set(true, forKey: Self.didSetUpKey)
-        if !isEnabled { setEnabled(true) }
-        Log.app.info("login item set up on first launch — enabled: \(self.isEnabled, privacy: .public)")
+        let path = Bundle.main.bundlePath
+        defer { if isEnabled { defaults.set(path, forKey: Self.registeredPathKey) } }
+
+        guard defaults.bool(forKey: Self.didSetUpKey) else {
+            defaults.set(true, forKey: Self.didSetUpKey)
+            if !isEnabled { setEnabled(true) }
+            Log.app.info("login item set up on first launch — enabled: \(self.isEnabled, privacy: .public)")
+            return
+        }
+
+        let registered = defaults.string(forKey: Self.registeredPathKey)
+        guard isEnabled, registered != path else { return }
+        try? SMAppService.mainApp.unregister()
+        setEnabled(true)
+        Log.app.info("login item re-registered for \(path, privacy: .public) — enabled: \(self.isEnabled, privacy: .public)")
     }
 
     var statusText: String {
         if let lastError { return lastError }
         if needsApproval { return "Almost — allow it in System Settings ▸ General ▸ Login Items." }
         return isEnabled
-            ? "On. SAI's Whisper opens by itself whenever your Mac starts or you log in."
-            : "Off. You'll open SAI's Whisper yourself after a restart."
+            ? "On. Saira opens by itself whenever your Mac starts or you log in."
+            : "Off. You'll open Saira yourself after a restart."
     }
 
     func openSystemSettings() {

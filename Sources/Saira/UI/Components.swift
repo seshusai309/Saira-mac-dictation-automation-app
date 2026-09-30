@@ -1,4 +1,4 @@
-import WhisperDictionary
+import SairaDictionary
 import SwiftUI
 
 // The app's shared vocabulary. Every value comes from `DS`; if a component needs a number

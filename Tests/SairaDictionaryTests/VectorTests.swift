@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import WhisperDictionary
+@testable import SairaDictionary
 
 /// Runs the shared behavioural contract in `shared/dictionary-test-vectors.json`.
 ///

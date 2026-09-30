@@ -4,7 +4,7 @@
 .DS_Store
 
 # Built .app bundles, at the repo root only. `make` stages the real bundle in
-# ~/Library/Caches/SAIsWhisperBuild, never here.
+# ~/Library/Caches/SairaBuild, never here.
 /*.app/
 
 # Local ASR model weights. Large, redistributed under their own license, and FluidAudio

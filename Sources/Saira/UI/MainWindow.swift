@@ -97,7 +97,7 @@ private struct Sidebar: View {
             HStack(spacing: DS.Space.snug) {
                 AppMark()
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("SAI's Whisper")
+                    Text("Saira")
                         .font(DS.Font.wordmark)
                         .foregroundStyle(DS.Color.ink)
                     Text("Retro edition")

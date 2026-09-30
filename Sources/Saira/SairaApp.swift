@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct SAIsWhisperApp: App {
+struct SairaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
@@ -16,7 +16,7 @@ struct SAIsWhisperApp: App {
     var body: some Scene {
         // A `Window` rather than a `WindowGroup`: this app has one main window, and letting
         // ⌘N spawn a second copy makes no sense.
-        Window("SAI's Whisper", id: "main") {
+        Window("Saira", id: "main") {
             MainWindow(controller: delegate.controller)
         }
         .windowStyle(.hiddenTitleBar)
@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         observeForPill()
-        Log.app.info("SAI's Whisper ready — \(Settings.shared.shortcut.displayName, privacy: .public) to dictate")
+        Log.app.info("Saira ready — \(Settings.shared.shortcut.displayName, privacy: .public) to dictate")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -191,7 +191,7 @@ private struct MenuContent: View {
 
         Divider()
 
-        Button("Open SAI's Whisper") {
+        Button("Open Saira") {
             openWindow(id: "main")
             NSApp.activate()
         }
@@ -212,7 +212,7 @@ private struct MenuContent: View {
 
         Divider()
 
-        Button("Quit SAI's Whisper") { NSApp.terminate(nil) }
+        Button("Quit Saira") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 
