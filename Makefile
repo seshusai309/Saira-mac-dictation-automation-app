@@ -1,43 +1,70 @@
-EXEC     := MurmurYouTube
+EXEC     := SAIsWhisper
 CONFIG   := debug
 
 ## Build products live OUTSIDE this directory, for the same reason the .app does.
 ##
-## ~/Desktop is iCloud/file-provider synced, and the provider mutates files inside
-## .build while the compiler is using them — producing "input file was modified during
-## the build" on random object files, and occasionally a wedged swift-frontend stuck at
-## 0% CPU. Moving the scratch path to ~/Library/Caches (never synced) removes the race.
-SCRATCH  := $(HOME)/Library/Caches/MurmurYouTubeBuild/scratch
+## If this tree is ever iCloud/file-provider synced (~/Desktop, ~/Documents), the provider
+## mutates files inside .build while the compiler is using them — producing "input file was
+## modified during the build" on random object files. ~/Library/Caches is never synced.
+SCRATCH  := $(HOME)/Library/Caches/SAIsWhisperBuild/scratch
 BUILD    := $(SCRATCH)/$(CONFIG)/$(EXEC)
 
-## The bundle is assembled and signed OUTSIDE this directory on purpose.
+## Toolchain workaround for a Mac with only the Command Line Tools (no full Xcode).
 ##
-## This tree lives under ~/Desktop, which is iCloud/file-provider synced. The provider
-## stamps com.apple.FinderInfo onto files inside an .app faster than we can strip them,
-## and codesign hard-refuses anything carrying them ("resource fork, Finder information,
-## or similar detritus not allowed"). `xattr -cr` immediately before signing is not enough
-## — the provider re-stamps in between. Staging in ~/Library/Caches sidesteps it entirely.
-STAGE    := $(HOME)/Library/Caches/MurmurYouTubeBuild
-APPNAME  := Murmur YouTube.app
+## Swift 6.4's default build system ("swiftbuild") fails to initialise at all under the CLT
+## ("Unknown error parsing property list"), even for an empty package. The native build
+## system works, but against the macOS 27 SDK SwiftUI's `@State` is a macro whose plugin
+## (SwiftUIMacros) only ships inside Xcode. The macOS 26 SDK still declares it as a property
+## wrapper, and the app's deployment target is 26 anyway — so build against that.
+##
+## With full Xcode installed, override: `make SWIFT_FLAGS=`.
+SDK26       := $(shell xcrun --sdk macosx26.5 --show-sdk-path 2>/dev/null || xcrun --sdk macosx26 --show-sdk-path 2>/dev/null)
+ifneq ($(strip $(SDK26)),)
+SWIFT_FLAGS ?= --build-system native --sdk "$(SDK26)"
+## Pointing at a non-default SDK also loses the toolchain's swift-testing framework path,
+## so the tests are told where it lives.
+TESTING_FW  := $(shell xcode-select -p)/Library/Developer/Frameworks
+TEST_FLAGS  ?= -Xswiftc -F -Xswiftc "$(TESTING_FW)" -Xlinker -F -Xlinker "$(TESTING_FW)" \
+               -Xlinker -rpath -Xlinker "$(TESTING_FW)"
+endif
+
+## The bundle is assembled and signed OUTSIDE this directory on purpose: a file provider
+## can stamp com.apple.FinderInfo onto files inside an .app faster than we can strip them,
+## and codesign hard-refuses anything carrying it.
+STAGE    := $(HOME)/Library/Caches/SAIsWhisperBuild
+APPNAME  := SAI's Whisper.app
 BUNDLE   := $(STAGE)/$(APPNAME)
 CONTENTS := $(BUNDLE)/Contents
 
 ## TCC keys the Accessibility grant to the code signature, so an ad-hoc signature — which
-## changes on every build — makes the user re-grant after every `make`. Signing with a
-## stable Developer ID keeps the identity constant and the grant sticky. Falls back to
-## ad-hoc ("-") on a machine without the cert.
+## changes on every build — makes you re-grant after every `make`. Any *stable* identity fixes
+## that, in order of preference:
+##   1. a Developer ID, if the Mac has one;
+##   2. a self-signed "SAI's Whisper Local Signing" code-signing certificate (Keychain Access ▸
+##      Certificate Assistant ▸ Create a Certificate… ▸ type Code Signing). Self-signed certs are
+##      "not trusted", so it's looked up without -v — codesign doesn't need trust, TCC doesn't
+##      either, it only needs the same certificate every time;
+##   3. ad-hoc ("-"), which works but forgets the Accessibility grant on every rebuild.
+LOCAL_ID := SAI's Whisper Local Signing
 SIGN_ID := $(shell security find-identity -v -p codesigning 2>/dev/null \
              | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)".*/\1/')
+ifeq ($(strip $(SIGN_ID)),)
+SIGN_ID := $(shell security find-identity -p codesigning 2>/dev/null \
+             | grep -F "$(LOCAL_ID)" | head -1 | sed -E 's/.*"(.*)".*/\1/')
+endif
 ifeq ($(strip $(SIGN_ID)),)
 SIGN_ID := -
 endif
 
-.PHONY: all build app run install clean icon
+.PHONY: all build app run install test clean icon
 
 all: app
 
 build:
-	swift build -c $(CONFIG) --scratch-path "$(SCRATCH)"
+	swift build -c $(CONFIG) $(SWIFT_FLAGS) --scratch-path "$(SCRATCH)"
+
+test:
+	swift test $(SWIFT_FLAGS) $(TEST_FLAGS) --scratch-path "$(SCRATCH)" --filter VectorTests
 
 ## Regenerates AppIcon.icns from Tools/makeicon.swift. Not a dependency of `app` — the
 ## icon rarely changes and rendering 10 PNGs on every build is wasted time.
@@ -51,12 +78,10 @@ icon:
 app: build
 	@rm -rf "$(BUNDLE)"
 	@mkdir -p "$(CONTENTS)/MacOS" "$(CONTENTS)/Resources"
-	@cp $(BUILD) "$(CONTENTS)/MacOS/$(EXEC)"
+	@cp "$(BUILD)" "$(CONTENTS)/MacOS/$(EXEC)"
 	@cp Resources/Info.plist "$(CONTENTS)/Info.plist"
 	@if [ -f Resources/AppIcon.icns ]; then cp Resources/AppIcon.icns "$(CONTENTS)/Resources/"; fi
 	@printf 'APPL????' > "$(CONTENTS)/PkgInfo"
-	@# Belt and braces: the staging dir isn't synced, but the copied binary can still carry
-	@# xattrs inherited from the synced .build directory.
 	@xattr -cr "$(BUNDLE)"
 	@codesign --force --sign "$(SIGN_ID)" \
 		--entitlements Resources/$(EXEC).entitlements \
@@ -65,16 +90,14 @@ app: build
 		"$(BUNDLE)"
 	@echo "built $(BUNDLE)  [signed: $(SIGN_ID)]"
 
-## Only ever targets the MurmurYouTube executable — never the separate `murmur` app.
+## Only ever targets the SAIsWhisper executable — never another dictation app.
 run: app
 	@pkill -x $(EXEC) 2>/dev/null || true
 	@open "$(BUNDLE)"
 
-## Ad-hoc signatures change on every rebuild, which resets the Accessibility grant.
-## Installing to /Applications keeps the path stable and makes re-granting a one-click fix.
+## Installing to /Applications keeps the path stable, and "Start at login" requires it.
 install: app
 	@pkill -x $(EXEC) 2>/dev/null || true
-	@# $(BUNDLE) is an absolute staging path — the destination must use $(APPNAME) alone.
 	@rm -rf "/Applications/$(APPNAME)"
 	@cp -R "$(BUNDLE)" "/Applications/$(APPNAME)"
 	@open "/Applications/$(APPNAME)"

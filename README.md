@@ -1,201 +1,186 @@
-# Murmur YouTube
+# SAI's Whisper
 
-Push-to-talk dictation for macOS. Hold a key, talk, release — cleaned-up text lands in
-whatever text field has focus. A Wispr Flow-shaped app, built native and fully on-device.
+**Your voice. Higher productivity.**
+Made by **Sai Sesha Reddy**.
 
-**Status:** working skeleton. Builds, launches, arms the hotkey, transcribes, injects.
-Branding and the LLM cleanup tier are the next passes.
-
----
-
-## Coexisting with another dictation app
-
-This app is built to run alongside other dictation tools without colliding with them, which
-is not automatic on macOS and is worth understanding before changing anything:
-
-- **Bundle ID `ai.pivotstudio.murmur-youtube`** — TCC keys Accessibility and Microphone
-  grants to the bundle ID, so granting or revoking a permission here has no effect on any
-  other app, and vice versa.
-- **Executable `MurmurYouTube`** — distinct enough that `pkill -x MurmurYouTube` cannot
-  match a differently-named binary. The `Makefile` only ever targets `$(EXEC)`.
-- **Hotkey is configurable** (Right ⌥ / fn / Right ⌘) precisely because another tool may
-  already own the key you'd reach for first. The event tap inspects only its own keycode
-  and passes everything else through untouched.
-
-If you run more than one dictation app, give each a different push-to-talk key. Two apps on
-the same key both record, and whichever injects text will fight the other.
+Hold a key, talk, let go — and clean, punctuated text appears wherever you're typing: email,
+Slack, Notes, a browser, a code editor. Everything happens on your Mac. Nothing you say is
+sent anywhere.
 
 ---
 
-## Quick start
+## Install it on your Mac
+
+About 5 minutes. No coding, no AI, nothing to buy.
+
+**You need:** a Mac with **macOS 26 (Tahoe) or newer**. To check: Apple menu  ▸ About This Mac.
+
+### 1. Open Terminal
+
+Press **⌘ Command + Space**, type **Terminal**, press **Return**.
+
+### 2. Install Apple's free developer tools *(skip if you've done this before)*
+
+Copy this line, paste it into Terminal, press **Return**:
+
+```
+xcode-select --install
+```
+
+A window pops up — click **Install** and wait until it says it's done (5–15 minutes).
+If Terminal says *"already installed"*, that's fine — go on.
+
+### 3. Download and install SAI's Whisper
+
+Copy this line, paste it into Terminal, press **Return**:
+
+```
+git clone https://github.com/seshusai309/Saira-mac-dictation-automation-app.git ~/sais-whisper && ~/sais-whisper/install.sh
+```
+
+Wait about a minute. When it says **Done**, SAI's Whisper is in your Applications folder and
+open.
+
+> **No `git`?** On the GitHub page, click the green **Code** button ▸ **Download ZIP**. Open the
+> ZIP (it unpacks into your Downloads folder), then paste this into Terminal instead:
+> `~/Downloads/Saira-mac-dictation-automation-app-main/install.sh`
+
+### 4. Allow it to work in every app *(one time)*
+
+Open **System Settings ▸ Privacy & Security ▸ Accessibility** and turn on **SAI's Whisper**.
+It switches on by itself — no restart needed.
+
+### 5. Talk
+
+Click into any text box. **Hold ⌥ Option + Space**, say something, let go. The first time,
+click **Allow** when it asks for the microphone.
+
+That's it. It also starts by itself whenever your Mac starts (you can turn that off in
+Settings ▸ Startup).
+
+### Good to know
+
+- **Prefer the fn key?** In SAI's Whisper ▸ Settings, pick **fn**. Then open System Settings ▸
+  Keyboard and set **"Press 🌐 key to"** to **Do Nothing** — otherwise macOS answers fn too.
+  A quick tap of fn does nothing; *hold* it to dictate.
+- **Esc** cancels a dictation.
+- **Update to a newer version:** paste `cd ~/sais-whisper && git pull && ./install.sh`, then
+  turn Accessibility back on (step 4) — macOS asks again after every reinstall.
+- **Shortcut stopped working?** Open SAI's Whisper — if it says *"Your shortcut is off"*, click
+  **Fix** and turn it on again in the window that opens.
+- **Uninstall:** quit it from the menu-bar icon, drag *SAI's Whisper* from Applications to the
+  Trash. Your history and dictionary are in `~/Library/Application Support/SAIsWhisper` if you
+  want those gone too.
+
+---
+
+## What's in it
+
+**The pill** — a small frosted-glass pill at the bottom of the screen: amber bars that move with
+your voice, and "SAI's Whisper". It pops up like a bubble only when you *hold* the shortcut, and
+disappears the moment your text is typed. Optional voice bubbles rise off it as you talk
+(Settings ▸ Voice bubbles).
+
+**Dictate** — start a dictation from the app itself, then **Copy**, **Edit** or **Insert** the
+result. Your recent dictations sit beside it.
+
+**History** — everything you've said, searchable, with any dictionary corrections shown.
+
+**Templates** — Everyday, Notes, Code, Content, Tasks: each shapes the cleanup for where your
+words are going. *Code* keeps commands exact; *Tasks* turns a spoken list into a checklist.
+
+**Dictionary** — teach it names and jargon it gets wrong: words it should know, and
+corrections like `cloud code → Claude Code`. Also a plain text file you can edit.
+
+**Settings** — start with your Mac, shortcut (⌥ Space, Right ⌥, fn, Right ⌘) and hold vs.
+press-once, language, microphone with a level test, Smart cleanup, typing vs. copy-only,
+sounds, light/dark theme, permission status.
+
+**Private by design.** Speech recognition is Apple's own engine, built into macOS — nothing to
+download, and the app uses about 50 MB of memory. *Smart cleanup* (optional) uses Apple's
+on-device AI model. Nothing ever leaves your Mac.
+
+---
+
+## For developers
 
 ```bash
-make install     # builds, bundles, signs, copies to /Applications, launches
+make install     # build, bundle, sign, copy to /Applications, launch
+make test        # the dictionary's behaviour tests
+make app         # bundle only        make run    # run in place
+make icon        # regenerate the app icon      make clean
 ```
 
-Then grant two permissions — neither is optional, and neither can be requested silently:
+Swift 6, SwiftUI, macOS 26+, no third-party dependencies. See `AGENTS.md` for the rules the
+code follows and the traps worth knowing about.
 
-| Permission | Where | Needed for |
-|---|---|---|
-| **Accessibility** | System Settings ▸ Privacy & Security ▸ Accessibility | The `CGEventTap` that sees the hotkey, and the AX text insert |
-| **Microphone** | Prompted on first dictation | Audio capture |
+> **Toolchain note.** On a Mac with only the Command Line Tools, Swift 6.4's default build
+> system can't start, and the macOS 27 SDK needs an Xcode-only SwiftUI macro plugin. The
+> Makefile works around both by building with the native build system against the macOS 26
+> SDK. With full Xcode installed, `make SWIFT_FLAGS= TEST_FLAGS=` uses the defaults.
 
-Restart Murmur YouTube after granting Accessibility. Then hold **Right ⌥** and talk.
-
-### Why grants survive rebuilds here
-
-TCC stores a *code-signing requirement* per entry, not just a path. An ad-hoc signature
-changes on every build, so the rebuilt binary stops satisfying the stored requirement —
-and the symptom is nasty: the Accessibility toggle still **shows as on** while the app is
-reported untrusted, and flipping it changes nothing because the stale row is the problem.
-
-The `Makefile` therefore signs with a stable Developer ID (auto-detected via
-`security find-identity`, falling back to ad-hoc). Verified: rebuild + reinstall keeps both
-grants with no re-prompt.
-
-If a grant ever does get wedged, reset that one row and re-add — never toggle:
-
-```bash
-tccutil reset Accessibility ai.pivotstudio.murmur-youtube
-tccutil reset Microphone   ai.pivotstudio.murmur-youtube
-```
-
-Always pass the bundle ID. A bare `tccutil reset Accessibility` wipes **every** app on the
-machine. Then quit System Settings entirely (⌘Q) before reopening — that pane caches its
-list and will otherwise show the row you just deleted.
-
-> **Keep the build out of iCloud.** `~/Desktop` and `~/Documents` are file-provider synced
-> on this machine; the sync engine can materialize/dematerialize files inside an `.app` and
-> corrupt its signature. `make install` puts the running copy in `/Applications`.
-
-Other targets: `make app` (bundle only), `make run` (run in place), `make clean`.
-
----
-
-## Architecture
+### Architecture
 
 ```
- hold key ─► HotkeyMonitor ──► DictationController ◄── Settings
+ shortcut ─► HotkeyMonitor ──► DictationController ◄── Settings
                                 │
                      ┌──────────┼──────────┐
                      ▼          ▼          ▼
-              AudioCapture  HUDPanel   TranscriptionEngine
+              AudioCapture   FlowPill   TranscriptionEngine
                      │                      │
-                (AudioChunk) ──ordered──► AppleSpeechEngine
+                (AudioChunk) ──ordered──► Apple SpeechAnalyzer
                                             │
-                                       (transcript)
+                                       TextFormatter (+ template)
                                             ▼
-                                      TextFormatter
+                                    DictionaryCorrector
                                             ▼
-                                      TextInjector ─► focused app
+                                       TextInjector ─► focused app
 ```
 
-### Decisions worth knowing
-
-**The HUD must never take focus.** `HUDPanel` is a `.nonactivatingPanel` with
-`canBecomeKey == false`. This is the load-bearing detail of the whole app: if the overlay
-took key status, the user's text field would lose focus and there'd be nothing left to
-inject into. Everything else is replaceable; this isn't.
-
-**The hotkey needs a `CGEventTap`, not `NSEvent`.** `fn` and left/right modifier
-discrimination don't surface through `NSEvent.addGlobalMonitorForEvents` or the Carbon
-hotkey API. A session event tap is the only way to see them — which is why Accessibility
-permission is a hard requirement rather than a nicety.
-
-**Audio ordering is explicit.** `AudioCapture` yields into an `AsyncStream` drained by a
-single task. Spawning a `Task` per buffer would be simpler and would silently corrupt the
-transcript, because unstructured tasks have no ordering guarantee.
-
-**Buffers are copied, never borrowed.** `AVAudioEngine` recycles the buffer it hands to a
-tap the instant the callback returns. `AudioChunk`'s `@unchecked Sendable` is only sound
-because `AudioCapture` always allocates fresh storage before handing off.
-
-**Two swappable seams.** `TranscriptionEngine` and `TextFormatter` are protocols so the
-two components most likely to change can change without touching anything else.
-
-### Layout
-
 ```
-Sources/MurmurYouTube/
-├── MurmurYouTubeApp.swift              @main, AppDelegate, MenuBarExtra
-├── Core/
-│   ├── DictationController.swift   state machine, wires everything
-│   ├── HotkeyMonitor.swift         CGEventTap on .flagsChanged
-│   ├── AudioCapture.swift          AVAudioEngine tap + format conversion + RMS
-│   └── TextInjector.swift          AX insert, pasteboard+⌘V fallback
-├── Transcription/
-│   ├── TranscriptionEngine.swift   protocol + AudioChunk
-│   └── AppleSpeechEngine.swift     SpeechAnalyzer / SpeechTranscriber
-├── Formatting/
-│   └── TextFormatter.swift         protocol + RuleBasedFormatter
-├── UI/
-│   ├── HUDPanel.swift              non-activating floating panel
-│   └── HUDView.swift               waveform + live transcript, Brand palette
-└── Support/
-    ├── Settings.swift, Permissions.swift, Log.swift
+Sources/SAIsWhisper/
+├── SAIsWhisperApp.swift          @main, AppDelegate, menu bar
+├── Core/                         controller, shortcut tap, capture, mic devices, injector
+├── Transcription/                engine protocol, Apple SpeechAnalyzer
+├── Formatting/                   rule-based + on-device LLM cleanup, templates
+├── Dictionary/                   the plain-text dictionary store
+├── UI/                           design tokens, components, screens, the pill
+└── Support/                      settings, history, paths, login item, permissions, snapshots
+Sources/WhisperDictionary/        the correction engine, tested against shared/ vectors
+install.sh                        the one-command installer from "Install it on your Mac"
 ```
+
+**The pill never takes focus.** `HUDPanel` is a `.nonactivatingPanel` with
+`canBecomeKey == false` — otherwise your text field would lose focus and there'd be nothing to
+type into.
+
+**The shortcut needs a `CGEventTap`** — the only API that sees left/right modifiers and `fn`,
+and that can *swallow* ⌥ Space so it doesn't also type a space. That's why Accessibility
+permission is required.
+
+**Audio ordering is explicit.** Capture yields into an `AsyncStream` drained by one task; a
+`Task` per buffer would scramble the audio.
+
+**Design review without screenshots:** debug builds render every screen, both themes and every
+pill state to PNGs:
+`SAIS_SNAPSHOT_DIR=~/Desktop/shots "$HOME/Library/Caches/SAIsWhisperBuild/SAI's Whisper.app/Contents/MacOS/SAIsWhisper"`
+
+**Why Accessibility is asked again after each rebuild:** without an Apple Developer ID the app
+is ad-hoc signed, and macOS ties the permission to the signature. To stop that on your own Mac,
+create a self-signed certificate once — Keychain Access ▸ Certificate Assistant ▸ Create a
+Certificate…, name **SAI's Whisper Local Signing**, type **Code Signing** — and the Makefile
+uses it automatically. A stuck permission resets with
+`tccutil reset Accessibility ai.sai.whisper` (always pass the bundle ID).
+
+### Not built yet
+
+1. **Command Mode** — select text, hold a second key, "make this more formal."
+2. **Onboarding** — a first-run window for the permissions (Settings shows their status).
+3. **A custom shortcut recorder** — the four shortcuts are a fixed list today.
 
 ---
 
-## Speech engine
+## Credits
 
-Default is Apple's **`SpeechAnalyzer` / `SpeechTranscriber`**, new in macOS 26: no
-dependency, no bundled model, no cloud path, real streaming with `.volatileResults` so
-text appears while you're still talking. The OS downloads and manages model assets, so the
-first run for a locale may pause on `AssetInstallationRequest`.
-
-The intended upgrade is **Parakeet v3** via FluidAudio (CoreML on the Neural Engine) —
-measurably better English WER, ~110× realtime, ~66 MB resident. Implementing
-`TranscriptionEngine` is the entire cost of switching; `DictationController` doesn't
-change.
-
-| | Apple SpeechTranscriber | Parakeet v3 (FluidAudio) | Whisper large-v3 (WhisperKit) |
-|---|---|---|---|
-| Dependency | none | SwiftPM | SwiftPM |
-| Model download | OS-managed | ~600 MB | ~1.5 GB |
-| English accuracy | good | best | good |
-| Languages | many | 25 | 99 |
-| Latency | low | ~80 ms | 200–500 ms |
-
----
-
-## Not built yet
-
-1. **LLM cleanup tier.** `RuleBasedFormatter` strips fillers, fixes spacing, capitalizes
-   sentences and adds terminal punctuation — genuinely useful, entirely deterministic. The
-   real win is a second `TextFormatter` backed by Apple's on-device Foundation Models
-   (macOS 26) for tone, list formatting, and honoring spoken corrections, with Claude as an
-   optional higher-quality tier.
-2. **Command Mode.** Select text, hold a second hotkey, say "make this more formal."
-   Needs AX read of `kAXSelectedTextAttribute` plus an LLM round-trip.
-3. **Personal dictionary.** Names and jargon the ASR keeps missing. `SpeechAnalyzer`
-   supports this through `AnalysisContext` / `SFCustomLanguageModelData`.
-4. **Branding.** `Brand` in `HUDView.swift` is a two-color placeholder gradient. App icon,
-   real palette, HUD motion design, onboarding.
-5. **Onboarding.** A first-run window that walks through both permissions instead of
-   relying on the menu's "Grant…" items.
-6. **Developer ID signing + notarization.** Ends the TCC-reset churn and makes the app
-   distributable.
-
----
-
-## Verified
-
-Driven with a synthetic Right ⌥ hold (`scratchpad/ptt/ptt2.swift` posts `flagsChanged`
-events) and confirmed via `/usr/bin/log show --predicate 'subsystem ==
-"ai.pivotstudio.murmur-youtube"'`:
-
-- Builds clean under Swift 6 strict concurrency.
-- Signs with Developer ID; grants survive rebuild + reinstall.
-- Launches as an accessory app, no Dock icon, menu bar item present.
-- Event tap arms on grant without a restart (the poller catches it).
-- Full state machine: `starting → listening → finishing → idle`, no errors.
-- `SpeechAnalyzer` starts; models already installed, no download stall.
-- Audio capture runs and converts native 48 kHz → 16 kHz for the engine.
-- HUD renders bottom-center at `{{790, 96}, {340, 76}}` without taking focus.
-- Silence produces an empty transcript and injects nothing.
-
-**Not yet verified:** speech → transcript → cleanup → injection. Synthetic key events
-can't produce audio, so this needs a human to hold the key and talk.
-
-> `log` is shadowed in this shell — use `/usr/bin/log` explicitly or it returns nothing.
+SAI's Whisper is designed and developed by **Sai Sesha Reddy**. Its push-to-talk engine
+started from [murmur-youtube](https://github.com/per-simmons/murmur-youtube) by Pat Simmons.

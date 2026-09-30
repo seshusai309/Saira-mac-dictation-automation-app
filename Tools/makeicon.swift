@@ -5,13 +5,15 @@ import Foundation
 // Renders AppIcon.icns from code — no design tool, no binary asset to keep in sync with
 // the HUD palette. Run: swift Tools/makeicon.swift
 
-// Matches `Brand` in HUDView.swift. Change both together.
-let accent = NSColor(srgbRed: 0.42, green: 0.55, blue: 1.00, alpha: 1)
-let accentWarm = NSColor(srgbRed: 0.76, green: 0.47, blue: 1.00, alpha: 1)
+// Matches `AppMark` in UI/Components.swift and the DS palette — Wispr Flow's brand colors.
+// Change them together.
+let charcoal = NSColor(srgbRed: 0x1A / 255.0, green: 0x1A / 255.0, blue: 0x1A / 255.0, alpha: 1)
+let cream = NSColor(srgbRed: 0xFF / 255.0, green: 0xFF / 255.0, blue: 0xEB / 255.0, alpha: 1)
+let lavender = NSColor(srgbRed: 0xF0 / 255.0, green: 0xD7 / 255.0, blue: 0xFF / 255.0, alpha: 1)
 
-/// Relative bar heights, center-weighted so the mark reads as a voice waveform rather
-/// than a bar chart.
-let bars: [CGFloat] = [0.30, 0.52, 0.78, 1.00, 0.82, 0.56, 0.34]
+/// Relative bar heights, center-weighted so the mark reads as a voice rather than a chart.
+/// The middle bar is the lavender one.
+let bars: [CGFloat] = [0.34, 0.62, 1.00, 0.70, 0.40]
 
 func drawIcon(size: CGFloat) -> NSImage {
     let image = NSImage(size: NSSize(width: size, height: size))
@@ -23,13 +25,12 @@ func drawIcon(size: CGFloat) -> NSImage {
     ctx.setShouldAntialias(true)
     ctx.interpolationQuality = .high
 
-    // macOS Big Sur+ icon grid: art occupies the middle ~82%, leaving the shadow gutter
-    // the system expects.
+    // macOS icon grid: art occupies the middle ~82%, leaving the shadow gutter the system
+    // expects.
     let inset = size * 0.09
     let rect = CGRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
     // Apple's squircle is ~22.37% of the tile's edge.
     let radius = rect.width * 0.2237
-
     let squircle = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
 
     // Drop shadow under the tile.
@@ -40,58 +41,42 @@ func drawIcon(size: CGFloat) -> NSImage {
         color: NSColor.black.withAlphaComponent(0.30).cgColor
     )
     ctx.addPath(squircle)
-    ctx.setFillColor(accent.cgColor)
+    ctx.setFillColor(charcoal.cgColor)
     ctx.fillPath()
     ctx.restoreGState()
 
-    // Diagonal brand gradient.
+    // A hairline bevel along the top edge — flat face, machined edge. No gradients.
     ctx.saveGState()
     ctx.addPath(squircle)
     ctx.clip()
-    let gradient = CGGradient(
-        colorsSpace: CGColorSpaceCreateDeviceRGB(),
-        colors: [accent.cgColor, accentWarm.cgColor] as CFArray,
-        locations: [0, 1]
-    )!
-    ctx.drawLinearGradient(
-        gradient,
-        start: CGPoint(x: rect.minX, y: rect.maxY),
-        end: CGPoint(x: rect.maxX, y: rect.minY),
-        options: []
+    let bevel = CGPath(
+        roundedRect: rect.insetBy(dx: size * 0.004, dy: size * 0.004),
+        cornerWidth: radius, cornerHeight: radius, transform: nil
     )
-
-    // Soft top highlight so the tile reads as glass rather than flat fill.
-    let highlight = CGGradient(
-        colorsSpace: CGColorSpaceCreateDeviceRGB(),
-        colors: [
-            NSColor.white.withAlphaComponent(0.28).cgColor,
-            NSColor.white.withAlphaComponent(0.0).cgColor,
-        ] as CFArray,
-        locations: [0, 1]
-    )!
-    ctx.drawLinearGradient(
-        highlight,
-        start: CGPoint(x: rect.midX, y: rect.maxY),
-        end: CGPoint(x: rect.midX, y: rect.midY),
-        options: []
-    )
+    ctx.addPath(bevel)
+    ctx.setStrokeColor(cream.withAlphaComponent(0.10).cgColor)
+    ctx.setLineWidth(max(1, size * 0.008))
+    ctx.strokePath()
     ctx.restoreGState()
 
+    // A thin cream ring — the grille of a field recorder's microphone.
+    let ringDiameter = rect.width * 0.66
+    let ring = CGRect(
+        x: rect.midX - ringDiameter / 2, y: rect.midY - ringDiameter / 2,
+        width: ringDiameter, height: ringDiameter
+    )
+    ctx.setStrokeColor(cream.withAlphaComponent(0.22).cgColor)
+    ctx.setLineWidth(max(1, size * 0.012))
+    ctx.strokeEllipse(in: ring)
+
     // Waveform mark.
-    let barWidth = rect.width * 0.072
-    let gap = rect.width * 0.050
+    let barWidth = rect.width * 0.066
+    let gap = rect.width * 0.052
     let totalWidth = CGFloat(bars.count) * barWidth + CGFloat(bars.count - 1) * gap
-    let maxHeight = rect.height * 0.46
+    let maxHeight = rect.height * 0.40
     var x = rect.midX - totalWidth / 2
 
-    ctx.saveGState()
-    ctx.setShadow(
-        offset: CGSize(width: 0, height: -size * 0.004),
-        blur: size * 0.014,
-        color: NSColor.black.withAlphaComponent(0.22).cgColor
-    )
-    ctx.setFillColor(NSColor.white.cgColor)
-    for bar in bars {
+    for (index, bar) in bars.enumerated() {
         let height = max(barWidth, maxHeight * bar)
         let barRect = CGRect(x: x, y: rect.midY - height / 2, width: barWidth, height: height)
         ctx.addPath(CGPath(
@@ -100,10 +85,10 @@ func drawIcon(size: CGFloat) -> NSImage {
             cornerHeight: barWidth / 2,
             transform: nil
         ))
+        ctx.setFillColor((index == bars.count / 2 ? lavender : cream).cgColor)
         ctx.fillPath()
         x += barWidth + gap
     }
-    ctx.restoreGState()
 
     image.unlockFocus()
     return image

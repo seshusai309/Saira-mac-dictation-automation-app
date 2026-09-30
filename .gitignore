@@ -3,22 +3,12 @@
 *.xcuserdatad
 .DS_Store
 
-# Built .app bundles, at the repo root ONLY.
-#
-# Anchored deliberately. An unanchored `*.app/` also matches `windows/src/Murmur.App/`,
-# because macOS filesystems are case-insensitive — which silently kept the entire Avalonia
-# app out of the repo until a CI publish step failed to find the project file.
+# Built .app bundles, at the repo root only. `make` stages the real bundle in
+# ~/Library/Caches/SAIsWhisperBuild, never here.
 /*.app/
 
-# Windows / .NET build
-[Bb]in/
-[Oo]bj/
-*.user
-.vs/
-artifacts/
-
-# Local ASR model weights. Large, redistributed under their own license, and every
-# platform fetches them itself — see docs/PARAKEET-WINDOWS.md.
+# Local ASR model weights. Large, redistributed under their own license, and FluidAudio
+# fetches them itself into ~/Library/Application Support/FluidAudio.
 models/
 *.onnx
 *.nemo
