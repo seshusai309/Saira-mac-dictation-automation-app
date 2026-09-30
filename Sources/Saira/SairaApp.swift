@@ -29,14 +29,6 @@ struct SairaApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
-            // ⌘Q closes the window and keeps Saira listening — quitting by habit shouldn't
-            // silently switch dictation off. A real quit is one modifier away.
-            CommandGroup(replacing: .appTermination) {
-                Button("Close Saira — Keep Listening") { AppDelegate.sendToBackground() }
-                    .keyboardShortcut("q")
-                Button("Quit Saira Completely") { NSApp.terminate(nil) }
-                    .keyboardShortcut("q", modifiers: [.command, .option])
-            }
             CommandMenu("Dictation") {
                 Button("Start or Finish Dictation") { delegate.controller.toggleFromWindow() }
                     .keyboardShortcut("d", modifiers: [.command, .shift])
@@ -113,7 +105,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Permissions.promptForAccessibility()
         }
         startWatchdog()
-        observeMainWindowClosing()
 
         observeForPill()
         Log.app.info("Saira ready — \(Settings.shared.shortcut.displayName, privacy: .public) to dictate")
@@ -163,27 +154,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Closing the window leaves Saira running in the menu bar, with no Dock icon.
-    private func observeMainWindowClosing() {
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: nil,
-            queue: .main
-        ) { note in
-            // Pulled out first: the notification itself can't cross into main-actor code.
-            let window = note.object as? NSWindow
-            MainActor.assumeIsolated {
-                guard window?.identifier?.rawValue == "main" else { return }
-                Task { @MainActor in NSApp.setActivationPolicy(.accessory) }
-            }
-        }
-    }
-
-    /// ⌘Q: close the window, keep listening.
-    static func sendToBackground() {
-        NSApp.windows.first { $0.identifier?.rawValue == "main" }?.close()
-        NSApp.hide(nil)
-        NSApp.setActivationPolicy(.accessory)
+    /// The red ✕ closes the window and Saira keeps running — Dock icon and all, so it's always
+    /// visible that it's still listening (and it shows up in Force Quit). ⌘Q quits for real.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
     }
 
     /// Clicking the Dock icon with no window open brings the main window back.
@@ -196,7 +170,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// SwiftUI `Window` needs: it's gone from `NSApp.windows`, so only SwiftUI's own
     /// `openWindow` action can bring it back.
     static func showMainWindow() {
-        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }),
            window.isVisible || window.isMiniaturized {
@@ -256,7 +229,6 @@ private struct MenuContent: View {
         Divider()
 
         Button("Open Saira") {
-            NSApp.setActivationPolicy(.regular)
             openWindow(id: "main")
             NSApp.activate()
         }
@@ -277,8 +249,8 @@ private struct MenuContent: View {
 
         Divider()
 
-        Button("Quit Saira Completely") { NSApp.terminate(nil) }
-            .keyboardShortcut("q", modifiers: [.command, .option])
+        Button("Quit Saira") { NSApp.terminate(nil) }
+            .keyboardShortcut("q")
     }
 
     private var statusLine: String {

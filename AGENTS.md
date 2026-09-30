@@ -97,9 +97,11 @@ fn+arrow — cancels silently. Audio is captured from the first instant, so noth
 the main window was closed at quit, macOS would otherwise relaunch with no window at all —
 which overrides `.defaultLaunchBehavior(.presented)` — and the app looks like it didn't open.
 
-**⌘Q doesn't quit.** It closes the window and keeps Saira listening from the menu bar (no
-Dock icon, `.accessory`). The real quit is ⌥⌘Q or the menu-bar item. A dictation app that stops
-listening because of a habitual ⌘Q is broken from the user's side.
+**Closing the window doesn't quit; ⌘Q does.** The red ✕ leaves Saira running and listening
+with its Dock icon (`applicationShouldTerminateAfterLastWindowClosed` → false). ⌘Q is a normal,
+complete quit. Don't hide the app into the menu bar (`.accessory`) on close or on ⌘Q — it was
+tried and reverted: a running app with no Dock icon doesn't show in Force Quit, and Sai
+couldn't find or stop it.
 
 **Saira opts out of Automatic Termination, Sudden Termination and App Nap** (Info.plist and
 `AppDelegate.stayAlive()`). With no window open, macOS otherwise ends or throttles it and the
