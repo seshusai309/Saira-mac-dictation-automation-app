@@ -128,6 +128,18 @@ every key press from every event tap on the Mac. Saira detects the holder
 (`Permissions.secureInputHolder`), names it in a banner and in the menu-bar status, and
 rebuilds the listener the moment it's released.
 
+**Every dictation gets a brand-new pill window** (`PillPresenter`), created at key-down and
+dropped when the dictation ends. Don't "optimise" this back into one long-lived window. After
+the Mac sleeps, a long-lived SwiftUI window can stop redrawing on state changes while the
+code keeps running (the same symptom is reported on Apple's developer forums, where a new
+window is the workaround). That was the reported "fn stops opening Saira" bug: the kept log
+showed fn down/up arriving, the microphone starting and the start sound playing, but the
+launch-time pill window never drew. A relaunch fixed it only because it made a new window.
+0.6 s after engaging, `occlusionState` is checked and the window replaced if it isn't
+visible. The dictation lifecycle (`dictation: listening / N characters / nothing heard /
+failed`) and `pill: …` log at notice level so the next report can be traced.
+`SAIRA_PILL_SELFTEST=<dir>` (debug builds) drives the real presenter twice and writes a report.
+
 **The pill's window is bigger than the pill.** `HUDPanel` is a fixed transparent canvas; the
 pill animates inside it. Clicks on transparent pixels fall through to the app below.
 

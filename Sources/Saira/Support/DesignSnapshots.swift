@@ -196,3 +196,57 @@ private enum AppliedCorrectionSample {
     }
 }
 #endif
+
+#if DEBUG
+/// Drives the real `PillPresenter` through two dictations and reports what happened: a fresh
+/// window per dictation, on screen while listening, gone afterwards — plus an image of what
+/// the first window actually drew. Debug builds only:
+///
+/// ```bash
+/// SAIRA_PILL_SELFTEST=/tmp/pilltest "…/Saira.app/Contents/MacOS/Saira"
+/// ```
+@MainActor
+enum PillSelfTest {
+    static var directory: URL? {
+        ProcessInfo.processInfo.environment["SAIRA_PILL_SELFTEST"].map { URL(fileURLWithPath: $0) }
+    }
+
+    static func run(controller: DictationController) {
+        guard let directory else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var report: [String] = []
+
+        func pillWindows() -> [HUDPanel] { NSApp.windows.compactMap { $0 as? HUDPanel } }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            var identities: [ObjectIdentifier] = []
+
+            for round in 1...2 {
+                controller.debugSimulate(.listening, transcript: "hello", level: 0.6)
+                try? await Task.sleep(for: .milliseconds(1_300))
+                let visible = pillWindows().filter(\.isVisible)
+                let onScreen = visible.first?.occlusionState.contains(.visible) ?? false
+                report.append("round \(round): visible pill windows = \(visible.count), macOS says on screen = \(onScreen)")
+                if let panel = visible.first {
+                    identities.append(ObjectIdentifier(panel))
+                    if round == 1, let view = panel.contentView,
+                       let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                        view.cacheDisplay(in: view.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?
+                            .write(to: directory.appendingPathComponent("pill-live.png"))
+                    }
+                }
+                controller.debugSimulate(.idle)
+                try? await Task.sleep(for: .milliseconds(900))
+                report.append("round \(round): visible pill windows after finishing = \(pillWindows().filter(\.isVisible).count)")
+            }
+            report.append("fresh window each dictation = \(identities.count == 2 && identities[0] != identities[1])")
+            try? report.joined(separator: "\n").write(
+                to: directory.appendingPathComponent("report.txt"), atomically: true, encoding: .utf8
+            )
+            exit(0)
+        }
+    }
+}
+#endif

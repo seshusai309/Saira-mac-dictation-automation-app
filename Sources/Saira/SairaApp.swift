@@ -78,7 +78,7 @@ struct SairaApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let controller = DictationController()
-    private var hud: HUDPanel?
+    private var pill: PillPresenter?
     /// Held for the app's lifetime: opts out of App Nap, which throttles a background app and
     /// makes macOS switch its event tap off — the shortcut would then miss presses.
     private var backgroundActivity: NSObjectProtocol?
@@ -105,9 +105,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         stayAlive()
 
-        let hud = HUDPanel(controller: controller)
-        self.hud = hud
-        hud.sync()
+        let pill = PillPresenter(controller: controller)
+        self.pill = pill
+        pill.sync()
+
+        #if DEBUG
+        // Pill self-test: drives the real presenter and quits — no shortcut, no prompts.
+        if PillSelfTest.directory != nil {
+            observeForPill()
+            PillSelfTest.run(controller: controller)
+            return
+        }
+        #endif
 
         if !controller.activate() {
             Permissions.promptForAccessibility()
@@ -168,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         for (name, reason) in moments {
             workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.controller.rebuildShortcut(reason: reason) }
+                MainActor.assumeIsolated { self?.recover(after: reason) }
             }
         }
         // Unlocking also ends the lock screen's Secure Input.
@@ -177,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.controller.rebuildShortcut(reason: "unlock") }
+            MainActor.assumeIsolated { self?.recover(after: "unlock") }
         }
         // Bringing Saira forward is what used to "fix" it — so do that for free.
         NotificationCenter.default.addObserver(
@@ -193,6 +202,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Set only by the confirmation in `confirmQuit()`.
     private static var quitConfirmed = false
+
+    /// After sleep, screen wake, unlock or a user switch: a fresh key listener and a fresh
+    /// pill window, the two things that can go stale.
+    private func recover(after reason: String) {
+        controller.rebuildShortcut(reason: reason)
+        pill?.refresh(after: reason)
+    }
 
     /// The red ✕ closes the window; Saira keeps running and listening.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -270,7 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
-                self.hud?.sync()
+                self.pill?.sync()
                 self.observeForPill()
             }
         }

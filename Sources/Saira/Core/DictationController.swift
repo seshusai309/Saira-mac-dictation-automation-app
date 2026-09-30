@@ -232,6 +232,7 @@ final class DictationController {
     private func engage() {
         guard !isEngaged else { return }
         isEngaged = true
+        Log.speech.notice("dictation: listening")
         if Settings.shared.soundEnabled { NSSound(named: "Tink")?.play() }
     }
 
@@ -432,6 +433,7 @@ final class DictationController {
                 Log.speech.info("dictionary · \(corrections.count, privacy: .public) correction(s) applied")
             }
 
+            Log.speech.notice("dictation: \(output.count, privacy: .public) characters to deliver")
             let run = recordRun(text: output, corrections: corrections, template: template)
             lastResult = run
             deliver(output)
@@ -484,6 +486,7 @@ final class DictationController {
 
     /// Silence, or a stray tap of the key: nothing to type and nothing to file.
     private func finishQuietly() {
+        Log.speech.notice("dictation: nothing heard")
         state = .idle
         transcript = ""
         recordingStartedAt = nil
@@ -574,7 +577,7 @@ final class DictationController {
     #endif
 
     private func fail(_ message: String) {
-        Log.app.error("\(message)")
+        Log.app.error("dictation failed: \(message, privacy: .public)")
         capture.stop()
         audioContinuation?.finish()
         audioContinuation = nil
