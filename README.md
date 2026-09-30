@@ -69,8 +69,12 @@ Settings ▸ Startup).
   does nothing until you open Saira again (it also starts by itself when your Mac starts).
 - **Update to a newer version:** paste `cd ~/saira && git pull && ./install.sh`, then
   turn Accessibility back on (step 4) — macOS asks again after every reinstall.
-- **Shortcut stopped working?** Open Saira — if it says *"Your shortcut is off"*, click
-  **Fix** and turn it on again in the window that opens.
+- **Shortcut stopped working?** Open Saira and read the banner at the top:
+  - *"Your shortcut is off"* — click **Fix** and turn it on again in the window that opens.
+  - *"Your shortcut is paused by …"* — that app has macOS **Secure Input** on (usually a
+    password field), which hides key presses from every app on the Mac. Saira comes back by
+    itself when it's released. If it stays stuck: lock the screen (⌃⌘Q) and unlock, or quit
+    that app. In Terminal, untick *Terminal ▸ Secure Keyboard Entry*.
 - **Uninstall:** quit it with ⌘Q, then drag *Saira* from Applications to the
   Trash. Your history and dictionary are in `~/Library/Application Support/Saira` if you
   want those gone too.

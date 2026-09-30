@@ -109,6 +109,20 @@ shortcut dies silently until relaunch — this was a real, reported bug. A watch
 (`keepShortcutAlive`, every 2 s and on wake/unlock) re-enables a tap macOS switched off,
 re-creates a missing one, and sends a key-up that was missed while it was off.
 
+**The key listener is rebuilt from scratch, often.** On wake, screen wake, unlock, user switch,
+whenever Saira is activated, when Secure Input ends, and every 30 s while idle
+(`rebuildShortcut`). A tap can stay *enabled* and still stop receiving events. That was a
+reported bug where fn did nothing after the lid was closed until the app was relaunched:
+there were no key events at all in the log for 15 minutes, then they came back the moment the
+app was brought forward. Re-enabling doesn't cure that; recreating does. Each rebuild logs how
+long ago the last key event arrived, which is how you tell a deaf tap from an idle user.
+
+**Secure Event Input can't be worked around.** While any app holds it (a focused password
+field, Terminal's Secure Keyboard Entry, known leaks in Cursor and 1Password), macOS hides
+every key press from every event tap on the Mac. Saira detects the holder
+(`Permissions.secureInputHolder`), names it in a banner and in the menu-bar status, and
+rebuilds the listener the moment it's released.
+
 **The pill's window is bigger than the pill.** `HUDPanel` is a fixed transparent canvas; the
 pill animates inside it. Clicks on transparent pixels fall through to the app below.
 

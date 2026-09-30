@@ -1,4 +1,5 @@
 import AVFoundation
+import Carbon.HIToolbox
 import AppKit
 import ApplicationServices
 import Foundation
@@ -69,6 +70,20 @@ enum Permissions {
     static func openKeyboardSettings() {
         let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
         NSWorkspace.shared.open(url)
+    }
+
+    /// The app holding macOS Secure Event Input right now, or nil if nobody is.
+    ///
+    /// Password fields turn it on while focused; some apps turn it on and never turn it off
+    /// (Terminal's "Secure Keyboard Entry", and known leaks in editors and password managers).
+    /// Either way it hides every keystroke from every app's key listener, system-wide.
+    static var secureInputHolder: String? {
+        guard IsSecureEventInputEnabled() else { return nil }
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        guard let pid = session?["kCGSSessionSecureInputPID"] as? pid_t, pid > 0 else {
+            return "another app"
+        }
+        return NSRunningApplication(processIdentifier: pid)?.localizedName ?? "another app"
     }
 
     static func openMicrophoneSettings() {

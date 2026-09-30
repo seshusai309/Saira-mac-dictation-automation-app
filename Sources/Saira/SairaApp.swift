@@ -136,21 +136,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Also what arms it once Accessibility is first granted.
     private func startWatchdog() {
         watchdog = Task { @MainActor [weak self] in
+            var tick = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                self?.controller.keepShortcutAlive()
+                guard let self else { return }
+                tick += 1
+                self.controller.keepShortcutAlive()
+                self.controller.updateSecureInput(holder: Permissions.secureInputHolder)
+                // The safety net: whatever silenced it, a fresh listener every 30 seconds
+                // means the shortcut is never dead for longer than that.
+                if tick.isMultiple(of: 15) {
+                    self.controller.rebuildShortcut(reason: "periodic")
+                }
             }
         }
-        let center = NSWorkspace.shared.notificationCenter
-        let moments = [
-            NSWorkspace.didWakeNotification,
-            NSWorkspace.screensDidWakeNotification,
-            NSWorkspace.sessionDidBecomeActiveNotification,
+
+        // The moments a listener is most likely to have gone deaf: rebuild right away.
+        let workspace = NSWorkspace.shared.notificationCenter
+        let moments: [(Notification.Name, String)] = [
+            (NSWorkspace.didWakeNotification, "wake"),
+            (NSWorkspace.screensDidWakeNotification, "screen wake"),
+            (NSWorkspace.sessionDidBecomeActiveNotification, "user switch"),
         ]
-        for name in moments {
-            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.controller.keepShortcutAlive() }
+        for (name, reason) in moments {
+            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.controller.rebuildShortcut(reason: reason) }
             }
+        }
+        // Unlocking also ends the lock screen's Secure Input.
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.screenIsUnlocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.controller.rebuildShortcut(reason: "unlock") }
+        }
+        // Bringing Saira forward is what used to "fix" it — so do that for free.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.controller.rebuildShortcut(reason: "app activated") }
         }
     }
 
@@ -254,7 +281,10 @@ private struct MenuContent: View {
     }
 
     private var statusLine: String {
-        switch controller.state {
+        if let holder = controller.secureInputHolder, !controller.state.isActive {
+            return "Shortcut paused — \(holder) is using Secure Input"
+        }
+        return switch controller.state {
         case .starting, .listening: "Listening…"
         case .finishing: "Transcribing…"
         case .error(let message): message

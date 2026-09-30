@@ -17,6 +17,8 @@ struct DictateView: View {
 
             if !controller.isShortcutArmed {
                 ShortcutOffBanner()
+            } else if let holder = controller.secureInputHolder {
+                SecureInputBanner(holder: holder)
             } else if settings.shortcut == .fn, globeKeyAction != 0 {
                 GlobeKeyWarning(action: globeKeyAction)
             }
@@ -65,6 +67,31 @@ private struct ShortcutOffBanner: View {
                 .help("Clears a stale permission for this app and asks again")
             Button("Open Settings") { Permissions.openAccessibilitySettings() }
                 .buttonStyle(.pillPrimary)
+        }
+        .padding(DS.Space.roomy)
+        .background(DS.Color.warningSoft, in: .rect(cornerRadius: DS.Radius.card, style: .continuous))
+    }
+}
+
+/// Shown while another app holds macOS Secure Input — the one thing Saira can't work around.
+private struct SecureInputBanner: View {
+    let holder: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: DS.Space.roomy) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(DS.Color.warning)
+            VStack(alignment: .leading, spacing: DS.Space.tight) {
+                Text("Your shortcut is paused by \(holder)")
+                    .font(DS.Font.heading)
+                    .foregroundStyle(DS.Color.ink)
+                Text("\(holder) has turned on macOS Secure Input (usually a password field), which hides every key press from every app. Saira comes back by itself the moment it's released. If it stays stuck: lock your screen (⌃⌘Q) and unlock, or quit \(holder). In Terminal, untick Terminal ▸ Secure Keyboard Entry.")
+                    .font(DS.Font.label)
+                    .foregroundStyle(DS.Color.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
         .padding(DS.Space.roomy)
         .background(DS.Color.warningSoft, in: .rect(cornerRadius: DS.Radius.card, style: .continuous))

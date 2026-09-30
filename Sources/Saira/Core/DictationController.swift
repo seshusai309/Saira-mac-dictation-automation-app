@@ -71,6 +71,10 @@ final class DictationController {
     private(set) var isEngaged = false
     /// Whether the keyboard shortcut is live. False until Accessibility is granted.
     private(set) var isShortcutArmed = false
+    /// The app currently holding macOS *Secure Event Input*, if any. While any app holds it,
+    /// macOS hides every key press from every key listener on the Mac — Saira's included —
+    /// so the shortcut can't work until that app lets go. Shown in the UI so it's not a mystery.
+    private(set) var secureInputHolder: String?
     private(set) var source: Source = .shortcut
     /// The most recent dictation — or a past one picked from history — for the result card.
     private(set) var lastResult: DictationRun?
@@ -153,6 +157,31 @@ final class DictationController {
         }
         guard Permissions.hasAccessibility else { return }
         if activate() { Log.hotkey.info("shortcut armed") }
+    }
+
+    /// Throws the key listener away and makes a fresh one — the same effect as restarting the
+    /// app. A listener can stay "enabled" and still stop hearing keys (after sleep, after
+    /// Secure Input); re-enabling doesn't fix that, recreating does. Skipped mid-dictation.
+    func rebuildShortcut(reason: String) {
+        guard !state.isActive, Permissions.hasAccessibility else { return }
+        let silence = hotkey.lastEventAt.map { Int(Date().timeIntervalSince($0)) }
+        if activate() {
+            Log.hotkey.info("""
+                shortcut rebuilt (\(reason, privacy: .public)) — last key event \(silence.map { "\($0)s" } ?? "never", privacy: .public) ago
+                """)
+        }
+    }
+
+    /// The watchdog's Secure Input check. Rebuilds the listener the moment the holder lets go.
+    func updateSecureInput(holder: String?) {
+        guard holder != secureInputHolder else { return }
+        let ended = secureInputHolder != nil && holder == nil
+        secureInputHolder = holder
+        if let holder {
+            Log.hotkey.info("Secure Input held by \(holder, privacy: .public) — keys are hidden from Saira")
+        } else if ended {
+            rebuildShortcut(reason: "Secure Input ended")
+        }
     }
 
     /// Re-arms the tap after the user picks a different shortcut.

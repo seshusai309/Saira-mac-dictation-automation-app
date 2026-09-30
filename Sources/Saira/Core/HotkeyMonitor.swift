@@ -90,6 +90,10 @@ final class HotkeyMonitor {
     /// held Space would start typing spaces the instant ⌥ came up.
     private var spaceHeld = false
 
+    /// When the tap last saw any key event. A rebuild logs how long ago that was, which is
+    /// how a deaf-but-enabled tap shows up in the log.
+    private(set) var lastEventAt: Date?
+
     var shortcut: Shortcut = .optionSpace
     var onDown: (() -> Void)?
     var onUp: (() -> Void)?
@@ -202,6 +206,7 @@ final class HotkeyMonitor {
             return false
         }
 
+        lastEventAt = Date()
         switch type {
         case .keyDown where keyCode == Int64(kVK_Escape):
             return onEscape?() ?? false
