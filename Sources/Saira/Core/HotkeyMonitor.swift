@@ -172,7 +172,7 @@ final class HotkeyMonitor {
         guard let tap, CFMachPortIsValid(tap) else { return false }
         if !CGEvent.tapIsEnabled(tap: tap) {
             CGEvent.tapEnable(tap: tap, enable: true)
-            Log.hotkey.info("tap found switched off — switched back on")
+            Log.hotkey.notice("tap found switched off — switched back on")
             resyncAfterGap()
         }
         return true
@@ -201,7 +201,7 @@ final class HotkeyMonitor {
         // The system disables a tap that runs too slowly or is interrupted; re-arm it.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            Log.hotkey.info("tap switched off by macOS (\(type == .tapDisabledByTimeout ? "timeout" : "user input", privacy: .public)) — switched back on")
+            Log.hotkey.notice("tap switched off by macOS (\(type == .tapDisabledByTimeout ? "timeout" : "user input", privacy: .public)) — switched back on")
             resyncAfterGap()
             return false
         }
@@ -236,6 +236,7 @@ final class HotkeyMonitor {
 
             spaceHeld = true
             chordActive = true
+            Log.hotkey.notice("\(self.shortcut.displayName, privacy: .public) down")
             onDown?()
             return true
 
@@ -269,6 +270,9 @@ final class HotkeyMonitor {
         guard nowDown != modifierDown else { return false }
         modifierDown = nowDown
 
+        // Notice level: macOS keeps these in its log, unlike info — so a "stuck" report can be
+        // read back afterwards: did the press arrive at all?
+        Log.hotkey.notice("\(self.shortcut.displayName, privacy: .public) \(nowDown ? "down" : "up", privacy: .public)")
         if nowDown { onDown?() } else { onUp?() }
 
         return shortcut.consumesModifierEvent

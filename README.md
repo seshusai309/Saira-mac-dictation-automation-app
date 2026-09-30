@@ -64,9 +64,10 @@ Settings ▸ Startup).
   Keyboard and set **"Press 🌐 key to"** to **Do Nothing** — otherwise macOS answers fn too.
   A quick tap of fn does nothing; *hold* it to dictate.
 - **Esc** cancels a dictation.
-- **Closing the window keeps Saira listening.** Click the red ✕ and it keeps running — its Dock
-  icon stays, and your shortcut keeps working. **⌘Q quits it completely**; the shortcut then
-  does nothing until you open Saira again (it also starts by itself when your Mac starts).
+- **Saira keeps listening until you deliberately quit it.** The red ✕, ⌘Q and the Dock's Quit
+  only close the window — it keeps running and your shortcut keeps working. To really stop it,
+  use **Quit Saira…** (Settings ▸ Startup, the power button at the bottom of the sidebar, or the
+  menu-bar icon) and confirm. Logging out, restarting and shutting down still close it normally.
 - **Update to a newer version:** paste `cd ~/saira && git pull && ./install.sh`, then
   turn Accessibility back on (step 4) — macOS asks again after every reinstall.
 - **Shortcut stopped working?** Open Saira and read the banner at the top:
@@ -75,7 +76,7 @@ Settings ▸ Startup).
     password field), which hides key presses from every app on the Mac. Saira comes back by
     itself when it's released. If it stays stuck: lock the screen (⌃⌘Q) and unlock, or quit
     that app. In Terminal, untick *Terminal ▸ Secure Keyboard Entry*.
-- **Uninstall:** quit it with ⌘Q, then drag *Saira* from Applications to the
+- **Uninstall:** Settings ▸ Startup ▸ **Quit Saira…**, then drag *Saira* from Applications to the
   Trash. Your history and dictionary are in `~/Library/Application Support/Saira` if you
   want those gone too.
 

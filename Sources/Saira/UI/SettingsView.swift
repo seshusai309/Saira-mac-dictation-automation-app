@@ -82,6 +82,14 @@ private struct StartupSection: View {
                     .labelsHidden()
                 }
             }
+            Divider()
+            SettingRow(
+                title: "Quit Saira",
+                detail: "Closing the window or pressing ⌘Q keeps Saira listening. This is the only way to stop it."
+            ) {
+                Button("Quit Saira…") { AppDelegate.confirmQuit() }
+                    .buttonStyle(.pillSecondary)
+            }
         }
     }
 }

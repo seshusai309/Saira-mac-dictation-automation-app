@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import SwiftUI
 
 @main
@@ -29,6 +30,13 @@ struct SairaApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            // ⌘Q only closes the window — Saira keeps listening. Quitting is deliberate:
+            // "Quit Saira…" asks first.
+            CommandGroup(replacing: .appTermination) {
+                Button("Close Saira Window") { AppDelegate.closeMainWindow() }
+                    .keyboardShortcut("q")
+                Button("Quit Saira…") { AppDelegate.confirmQuit() }
+            }
             CommandMenu("Dictation") {
                 Button("Start or Finish Dictation") { delegate.controller.toggleFromWindow() }
                     .keyboardShortcut("d", modifiers: [.command, .shift])
@@ -143,9 +151,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 tick += 1
                 self.controller.keepShortcutAlive()
                 self.controller.updateSecureInput(holder: Permissions.secureInputHolder)
-                // The safety net: whatever silenced it, a fresh listener every 30 seconds
+                // The safety net: whatever silenced it, a fresh listener every 10 seconds
                 // means the shortcut is never dead for longer than that.
-                if tick.isMultiple(of: 15) {
+                if tick.isMultiple(of: 5) {
                     self.controller.rebuildShortcut(reason: "periodic")
                 }
             }
@@ -181,10 +189,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// The red ✕ closes the window and Saira keeps running — Dock icon and all, so it's always
-    /// visible that it's still listening (and it shows up in Force Quit). ⌘Q quits for real.
+    // MARK: - Quitting only on purpose
+
+    /// Set only by the confirmation in `confirmQuit()`.
+    private static var quitConfirmed = false
+
+    /// The red ✕ closes the window; Saira keeps running and listening.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// Every other way of quitting — ⌘Q, the Dock's Quit, a script — just closes the window.
+    /// Saira keeps listening. It quits only after "Quit Saira…" is confirmed, or when macOS is
+    /// logging out, restarting or shutting down (never block that).
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if Self.quitConfirmed || Self.isSystemEndingSession { return .terminateNow }
+        Self.closeMainWindow()
+        return .terminateCancel
+    }
+
+    static func closeMainWindow() {
+        NSApp.windows.first { $0.identifier?.rawValue == "main" }?.close()
+    }
+
+    /// "Are you sure?" — the one way to stop Saira.
+    static func confirmQuit() {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = "Quit Saira?"
+        alert.informativeText = "Holding your shortcut won't dictate until you open Saira again. "
+            + "(It also starts by itself the next time your Mac starts.)"
+        alert.addButton(withTitle: "Quit")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        quitConfirmed = true
+        NSApp.terminate(nil)
+    }
+
+    /// Whether this quit comes from macOS ending the session — logout, restart or shutdown.
+    private static var isSystemEndingSession: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == AEEventID(kAEQuitApplication)
+        else { return false }
+        let reason = event.attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason))?.enumCodeValue
+            ?? event.paramDescriptor(forKeyword: AEKeyword(kAEQuitReason))?.enumCodeValue
+        guard let reason else { return false }
+        let endingReasons = [kAEQuitAll, kAELogOut, kAEReallyLogOut, kAEShowRestartDialog, kAERestart,
+                             kAEShowShutdownDialog, kAEShutDown].map { OSType($0) }
+        return endingReasons.contains(reason)
     }
 
     /// Clicking the Dock icon with no window open brings the main window back.
@@ -276,8 +329,7 @@ private struct MenuContent: View {
 
         Divider()
 
-        Button("Quit Saira") { NSApp.terminate(nil) }
-            .keyboardShortcut("q")
+        Button("Quit Saira…") { AppDelegate.confirmQuit() }
     }
 
     private var statusLine: String {

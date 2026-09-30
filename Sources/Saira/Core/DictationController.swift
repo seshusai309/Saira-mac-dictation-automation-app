@@ -3,6 +3,7 @@ import AVFoundation
 import AppKit
 import Foundation
 import Observation
+import OSLog
 
 /// Builds the speech engine for the current language setting.
 ///
@@ -166,7 +167,9 @@ final class DictationController {
         guard !state.isActive, Permissions.hasAccessibility else { return }
         let silence = hotkey.lastEventAt.map { Int(Date().timeIntervalSince($0)) }
         if activate() {
-            Log.hotkey.info("""
+            // Periodic rebuilds (every 10 s) stay at info so they don't flood the kept log.
+            let level: OSLogType = reason == "periodic" ? .info : .default
+            Log.hotkey.log(level: level, """
                 shortcut rebuilt (\(reason, privacy: .public)) — last key event \(silence.map { "\($0)s" } ?? "never", privacy: .public) ago
                 """)
         }
@@ -178,7 +181,7 @@ final class DictationController {
         let ended = secureInputHolder != nil && holder == nil
         secureInputHolder = holder
         if let holder {
-            Log.hotkey.info("Secure Input held by \(holder, privacy: .public) — keys are hidden from Saira")
+            Log.hotkey.notice("Secure Input held by \(holder, privacy: .public) — keys are hidden from Saira")
         } else if ended {
             rebuildShortcut(reason: "Secure Input ended")
         }

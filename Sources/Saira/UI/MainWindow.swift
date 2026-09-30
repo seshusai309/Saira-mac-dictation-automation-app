@@ -131,9 +131,14 @@ private struct Sidebar: View {
                     .font(DS.Font.body.italic())
                     .fontDesign(.serif)
                     .foregroundStyle(DS.Color.inkSecondary)
-                Text("v\(Bundle.main.shortVersion) · on-device")
-                    .font(DS.Font.mono)
-                    .foregroundStyle(DS.Color.inkTertiary)
+                HStack {
+                    Text("v\(Bundle.main.shortVersion) · on-device")
+                        .font(DS.Font.mono)
+                        .foregroundStyle(DS.Color.inkTertiary)
+                    Spacer()
+                    // The one way to stop Saira — ⌘Q and the red ✕ only close the window.
+                    IconButton(systemImage: "power", help: "Quit Saira…") { AppDelegate.confirmQuit() }
+                }
             }
             .padding(DS.Space.roomy)
         }

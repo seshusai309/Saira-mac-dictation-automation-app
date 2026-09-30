@@ -97,11 +97,13 @@ fn+arrow — cancels silently. Audio is captured from the first instant, so noth
 the main window was closed at quit, macOS would otherwise relaunch with no window at all —
 which overrides `.defaultLaunchBehavior(.presented)` — and the app looks like it didn't open.
 
-**Closing the window doesn't quit; ⌘Q does.** The red ✕ leaves Saira running and listening
-with its Dock icon (`applicationShouldTerminateAfterLastWindowClosed` → false). ⌘Q is a normal,
-complete quit. Don't hide the app into the menu bar (`.accessory`) on close or on ⌘Q — it was
-tried and reverted: a running app with no Dock icon doesn't show in Force Quit, and Sai
-couldn't find or stop it.
+**Nothing quits Saira except "Quit Saira…" + confirm.** The red ✕, ⌘Q, the Dock's Quit and
+scripted quits only close the window (`applicationShouldTerminate` → `.terminateCancel`); Saira
+keeps listening with its Dock icon. It quits after the confirmation in
+`AppDelegate.confirmQuit()`, or when the quit Apple event carries a logout/restart/shutdown
+reason (`kAEQuitReason`) — never block the system ending the session. Don't hide the app into
+the menu bar (`.accessory`): tried and reverted, since a running app with no Dock icon doesn't
+show in Force Quit.
 
 **Saira opts out of Automatic Termination, Sudden Termination and App Nap** (Info.plist and
 `AppDelegate.stayAlive()`). With no window open, macOS otherwise ends or throttles it and the
@@ -110,12 +112,15 @@ shortcut dies silently until relaunch — this was a real, reported bug. A watch
 re-creates a missing one, and sends a key-up that was missed while it was off.
 
 **The key listener is rebuilt from scratch, often.** On wake, screen wake, unlock, user switch,
-whenever Saira is activated, when Secure Input ends, and every 30 s while idle
+whenever Saira is activated, when Secure Input ends, and every 10 s while idle
 (`rebuildShortcut`). A tap can stay *enabled* and still stop receiving events. That was a
 reported bug where fn did nothing after the lid was closed until the app was relaunched:
 there were no key events at all in the log for 15 minutes, then they came back the moment the
 app was brought forward. Re-enabling doesn't cure that; recreating does. Each rebuild logs how
 long ago the last key event arrived, which is how you tell a deaf tap from an idle user.
+Shortcut down/up, non-periodic rebuilds, tap switch-offs and Secure Input log at **notice**
+level on purpose: macOS discards info-level lines, and a "it got stuck" report is useless
+without them.
 
 **Secure Event Input can't be worked around.** While any app holds it (a focused password
 field, Terminal's Secure Keyboard Entry, known leaks in Cursor and 1Password), macOS hides
