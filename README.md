@@ -183,4 +183,3 @@ uses it automatically. A stuck permission resets with
 ## Credits
 
 Saira is designed and developed by **Sai Sesha Reddy**. Its push-to-talk engine
-started from [murmur-youtube](https://github.com/per-simmons/murmur-youtube) by Pat Simmons.
