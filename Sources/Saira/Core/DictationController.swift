@@ -137,6 +137,24 @@ final class DictationController {
         cancelDictation()
     }
 
+    /// The watchdog's check, every couple of seconds and on wake: keeps the shortcut working
+    /// no matter how long the app has sat in the background.
+    ///
+    /// Re-enables a tap macOS switched off; recreates one that's gone (a grant that came back,
+    /// or was given for the first time); and keeps `isShortcutArmed` honest either way.
+    func keepShortcutAlive() {
+        if hotkey.ensureAlive() {
+            if !isShortcutArmed { isShortcutArmed = true }
+            return
+        }
+        if isShortcutArmed {
+            isShortcutArmed = false
+            Log.hotkey.error("shortcut lost — re-arming")
+        }
+        guard Permissions.hasAccessibility else { return }
+        if activate() { Log.hotkey.info("shortcut armed") }
+    }
+
     /// Re-arms the tap after the user picks a different shortcut.
     @discardableResult
     func reloadHotkey() -> Bool {

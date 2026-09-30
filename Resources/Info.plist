@@ -24,6 +24,10 @@
 	<false/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Saira · Sai Sesha Reddy</string>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>NSHighResolutionCapable</key>

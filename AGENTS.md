@@ -97,6 +97,16 @@ fn+arrow — cancels silently. Audio is captured from the first instant, so noth
 the main window was closed at quit, macOS would otherwise relaunch with no window at all —
 which overrides `.defaultLaunchBehavior(.presented)` — and the app looks like it didn't open.
 
+**⌘Q doesn't quit.** It closes the window and keeps Saira listening from the menu bar (no
+Dock icon, `.accessory`). The real quit is ⌥⌘Q or the menu-bar item. A dictation app that stops
+listening because of a habitual ⌘Q is broken from the user's side.
+
+**Saira opts out of Automatic Termination, Sudden Termination and App Nap** (Info.plist and
+`AppDelegate.stayAlive()`). With no window open, macOS otherwise ends or throttles it and the
+shortcut dies silently until relaunch — this was a real, reported bug. A watchdog
+(`keepShortcutAlive`, every 2 s and on wake/unlock) re-enables a tap macOS switched off,
+re-creates a missing one, and sends a key-up that was missed while it was off.
+
 **The pill's window is bigger than the pill.** `HUDPanel` is a fixed transparent canvas; the
 pill animates inside it. Clicks on transparent pixels fall through to the app below.
 

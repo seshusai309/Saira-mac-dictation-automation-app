@@ -29,6 +29,14 @@ struct SairaApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            // ⌘Q closes the window and keeps Saira listening — quitting by habit shouldn't
+            // silently switch dictation off. A real quit is one modifier away.
+            CommandGroup(replacing: .appTermination) {
+                Button("Close Saira — Keep Listening") { AppDelegate.sendToBackground() }
+                    .keyboardShortcut("q")
+                Button("Quit Saira Completely") { NSApp.terminate(nil) }
+                    .keyboardShortcut("q", modifiers: [.command, .option])
+            }
             CommandMenu("Dictation") {
                 Button("Start or Finish Dictation") { delegate.controller.toggleFromWindow() }
                     .keyboardShortcut("d", modifiers: [.command, .shift])
@@ -71,6 +79,10 @@ struct SairaApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let controller = DictationController()
     private var hud: HUDPanel?
+    /// Held for the app's lifetime: opts out of App Nap, which throttles a background app and
+    /// makes macOS switch its event tap off — the shortcut would then miss presses.
+    private var backgroundActivity: NSObjectProtocol?
+    private var watchdog: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -91,16 +103,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
 
+        stayAlive()
+
         let hud = HUDPanel(controller: controller)
         self.hud = hud
         hud.sync()
 
         if !controller.activate() {
             Permissions.promptForAccessibility()
-            // The tap can only be created once the user grants Accessibility, and there's
-            // no notification for that — poll until it takes.
-            retryActivation()
         }
+        startWatchdog()
+        observeMainWindowClosing()
 
         observeForPill()
         Log.app.info("Saira ready — \(Settings.shared.shortcut.displayName, privacy: .public) to dictate")
@@ -108,6 +121,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         controller.deactivate()
+    }
+
+    // MARK: - Always listening
+
+    /// Saira's whole job happens with no window open, and macOS treats a windowless background
+    /// app as fair game: *Automatic Termination* quietly ends it to reclaim memory (the Dock
+    /// and menu bar can lag behind, so it looks like it's still there), and *App Nap* throttles
+    /// it until the system switches its event tap off. Either one means holding the key does
+    /// nothing until the app is relaunched. Opt out of both, for as long as it runs.
+    private func stayAlive() {
+        let info = ProcessInfo.processInfo
+        info.disableAutomaticTermination("Saira listens for its shortcut from the background")
+        info.disableSuddenTermination()
+        backgroundActivity = info.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep],
+            reason: "Listening for the dictation shortcut"
+        )
+    }
+
+    /// Checks the shortcut every two seconds, and straight away after sleep, screen wake or a
+    /// switch back to this user — the moments macOS is most likely to have switched it off.
+    /// Also what arms it once Accessibility is first granted.
+    private func startWatchdog() {
+        watchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                self?.controller.keepShortcutAlive()
+            }
+        }
+        let center = NSWorkspace.shared.notificationCenter
+        let moments = [
+            NSWorkspace.didWakeNotification,
+            NSWorkspace.screensDidWakeNotification,
+            NSWorkspace.sessionDidBecomeActiveNotification,
+        ]
+        for name in moments {
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.controller.keepShortcutAlive() }
+            }
+        }
+    }
+
+    /// Closing the window leaves Saira running in the menu bar, with no Dock icon.
+    private func observeMainWindowClosing() {
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: nil,
+            queue: .main
+        ) { note in
+            // Pulled out first: the notification itself can't cross into main-actor code.
+            let window = note.object as? NSWindow
+            MainActor.assumeIsolated {
+                guard window?.identifier?.rawValue == "main" else { return }
+                Task { @MainActor in NSApp.setActivationPolicy(.accessory) }
+            }
+        }
+    }
+
+    /// ⌘Q: close the window, keep listening.
+    static func sendToBackground() {
+        NSApp.windows.first { $0.identifier?.rawValue == "main" }?.close()
+        NSApp.hide(nil)
+        NSApp.setActivationPolicy(.accessory)
     }
 
     /// Clicking the Dock icon with no window open brings the main window back.
@@ -120,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// SwiftUI `Window` needs: it's gone from `NSApp.windows`, so only SwiftUI's own
     /// `openWindow` action can bring it back.
     static func showMainWindow() {
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }),
            window.isVisible || window.isMiniaturized {
@@ -143,19 +220,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.hud?.sync()
                 self.observeForPill()
             }
-        }
-    }
-
-    /// Keeps trying until the shortcut is live. There's no notification for a TCC grant, and
-    /// `AXIsProcessTrusted` can report true a beat before a tap can actually be created — so
-    /// the loop waits for the tap itself, not the flag.
-    private func retryActivation() {
-        Task { @MainActor in
-            while !controller.isShortcutArmed {
-                try? await Task.sleep(for: .seconds(1))
-                if Permissions.hasAccessibility { controller.activate() }
-            }
-            Log.app.info("Accessibility granted — shortcut armed")
         }
     }
 }
@@ -192,6 +256,7 @@ private struct MenuContent: View {
         Divider()
 
         Button("Open Saira") {
+            NSApp.setActivationPolicy(.regular)
             openWindow(id: "main")
             NSApp.activate()
         }
@@ -212,8 +277,8 @@ private struct MenuContent: View {
 
         Divider()
 
-        Button("Quit Saira") { NSApp.terminate(nil) }
-            .keyboardShortcut("q")
+        Button("Quit Saira Completely") { NSApp.terminate(nil) }
+            .keyboardShortcut("q", modifiers: [.command, .option])
     }
 
     private var statusLine: String {

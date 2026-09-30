@@ -158,6 +158,38 @@ final class HotkeyMonitor {
         spaceHeld = false
     }
 
+    // MARK: - Staying alive
+
+    /// The watchdog's check. macOS switches a tap off after a stall (and while the Mac sleeps),
+    /// and nothing tells the app except an event that may never come — so re-enable it here.
+    ///
+    /// - Returns: `false` if there's no working tap at all, and it has to be created again.
+    func ensureAlive() -> Bool {
+        guard let tap, CFMachPortIsValid(tap) else { return false }
+        if !CGEvent.tapIsEnabled(tap: tap) {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            Log.hotkey.info("tap found switched off — switched back on")
+            resyncAfterGap()
+        }
+        return true
+    }
+
+    /// While the tap was off, a key-up could have gone by unseen, leaving a hold "stuck" on.
+    /// Compare what we believe is held with the keyboard's real state and send the release.
+    private func resyncAfterGap() {
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        if shortcut.modifierKeyCode != nil, modifierDown, !flags.contains(shortcut.modifierFlag) {
+            modifierDown = false
+            onUp?()
+        }
+        let spaceDown = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(kVK_Space))
+        if chordActive, !spaceDown || !flags.contains(.maskAlternate) {
+            chordActive = false
+            spaceHeld = spaceDown
+            onUp?()
+        }
+    }
+
     // MARK: - Tap callback
 
     /// - Returns: `true` if the event should be swallowed rather than passed along.
@@ -165,6 +197,8 @@ final class HotkeyMonitor {
         // The system disables a tap that runs too slowly or is interrupted; re-arm it.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            Log.hotkey.info("tap switched off by macOS (\(type == .tapDisabledByTimeout ? "timeout" : "user input", privacy: .public)) — switched back on")
+            resyncAfterGap()
             return false
         }
 
