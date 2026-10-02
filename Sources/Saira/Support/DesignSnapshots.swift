@@ -293,6 +293,15 @@ enum CleanupSelfTest {
             let new = await cleaner.finish(full: full, budget: .milliseconds(350)) ?? "(nil)"
             report.append("NEW after release: \(start.duration(to: .now))\n  → \(new)")
 
+            // The case that broke in real use: the last sentence is still being cleaned at
+            // release. The wait must stop at the 350 ms budget.
+            let busy = IncrementalCleaner(template: .everyday)
+            busy.update(committed: full)
+            try? await Task.sleep(for: .milliseconds(50))
+            start = ContinuousClock.now
+            let rushed = await busy.finish(full: full, budget: .milliseconds(350)) ?? "(nil)"
+            report.append("NEW, all still in flight at release: \(start.duration(to: .now))\n  → \(rushed)")
+
             try? report.joined(separator: "\n").write(
                 to: directory.appendingPathComponent("report.txt"), atomically: true, encoding: .utf8
             )

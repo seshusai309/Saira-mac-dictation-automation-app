@@ -27,7 +27,12 @@ struct FoundationModelFormatter: TextFormatter {
     /// Measured on this Mac: a cold model took ~4 s even for two words and usually hit a 4 s
     /// limit anyway — so the user waited the full four seconds for the rule-based result. With
     /// the model prewarmed while they talk, 2.5 s is enough when it's going to answer at all.
-    private let timeout: Duration = .milliseconds(2_500)
+    private var timeout: Duration {
+        // A sentence cleaned while the speaker talks has nobody waiting on it, and the model is
+        // slower then (it shares the chip with live speech recognition: sentences timed out at
+        // 2.5 s in real use). Give it room; release never waits on it anyway.
+        isSentenceOfLonger ? .seconds(8) : .milliseconds(2_500)
+    }
 
     /// Loads the model and caches the instructions while the user is still talking, so the
     /// real request on release doesn't pay the cold-start cost. Fire-and-forget.

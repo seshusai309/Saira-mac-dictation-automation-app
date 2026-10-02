@@ -166,8 +166,11 @@ app on the machine — then ⌘Q System Settings before reopening.
 on-device model pass costs ~0.6–0.85 s warm and ~6 s cold, so cleaning the whole transcript
 after release meant a 2–6 s wait. Instead, each sentence the engine *commits*
 (`TranscriptionChunk.committed`) is cleaned while the speaker carries on, one at a time. On
-release, finished results are reused, an in-flight one gets 350 ms, and the rest (usually the
-last sentence) gets the instant rule pass. A debug self-test (`SAIRA_CLEANUP_SELFTEST`)
+release, finished results are reused and everything else gets the instant rule pass, with a
+*hard* 350 ms limit: `finish` polls a results dictionary and never awaits a job, because
+awaiting a running task can't be cut short. It first did await, and real dictations waited out
+the model's whole 2.5 s timeout. Background sentence jobs get an 8 s timeout, since the model is
+slow while it shares the chip with live recognition. A debug self-test (`SAIRA_CLEANUP_SELFTEST`)
 measured 2.48 s → 0.0014 s after release. Sentence mode tells the model it's seeing part of a
 longer dictation, or it drops leading "And then"/"But" as filler. Tasks and Content templates
 skip it, because they need the whole text to structure. The watchdog prewarms the model every

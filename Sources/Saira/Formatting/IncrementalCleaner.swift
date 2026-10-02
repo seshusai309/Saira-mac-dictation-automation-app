@@ -20,7 +20,11 @@ import Foundation
 @MainActor
 final class IncrementalCleaner {
     private let template: DictationTemplate
-    private var jobs: [(source: String, task: Task<String, Never>)] = []
+    private var jobs: [(source: String, task: Task<Void, Never>)] = []
+    /// Finished results by sentence index, written as each job completes. `finish` reads only
+    /// this — it never awaits a job, because awaiting a running task can't be cut short.
+    /// (It once did; release then waited out the model's whole timeout, ~2.5 s.)
+    private var results: [Int: String] = [:]
 
     init(template: DictationTemplate) {
         self.template = template
@@ -38,20 +42,25 @@ final class IncrementalCleaner {
         let sentences = Self.split(committed).sentences
         guard sentences.count > jobs.count else { return }
         for sentence in sentences[jobs.count...] {
+            let index = jobs.count
             let previous = jobs.last?.task
             let template = template
             // One at a time, in order: the model is quickest serially, and a queue keeps the
             // newest sentence from waiting behind a pile of concurrent requests.
-            let task = Task {
+            let task = Task { [weak self] in
                 _ = await previous?.value
-                return await FoundationModelFormatter(template: template, isSentenceOfLonger: true)
+                guard !Task.isCancelled else { return }
+                let cleaned = await FoundationModelFormatter(template: template, isSentenceOfLonger: true)
                     .format(sentence)
+                guard !Task.isCancelled else { return }
+                self?.results[index] = cleaned
             }
             jobs.append((sentence, task))
         }
     }
 
-    /// Assembles the cleaned text for the final transcript.
+    /// Assembles the cleaned text for the final transcript, never waiting past `budget`:
+    /// sentences whose cleanup has landed by then are used, the rest get the instant rules.
     ///
     /// - Returns: nil when nothing was cleaned ahead of time — the caller should run the
     ///   normal full pass instead.
@@ -60,14 +69,19 @@ final class IncrementalCleaner {
         guard !jobs.isEmpty else { return nil }
 
         let (sentences, tail) = Self.split(full)
-        let rules = RuleBasedFormatter(template: template)
+        let matching = sentences.indices.filter { $0 < jobs.count && jobs[$0].source == sentences[$0] }
+
+        // A hard deadline: poll for results, give up the moment the budget is spent.
         let deadline = ContinuousClock.now + budget
+        while matching.contains(where: { results[$0] == nil }), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        let rules = RuleBasedFormatter(template: template)
         var pieces: [String] = []
         var reused = 0
-
         for (index, sentence) in sentences.enumerated() {
-            if index < jobs.count, jobs[index].source == sentence,
-               let cleaned = await Self.value(of: jobs[index].task, before: deadline) {
+            if matching.contains(index), let cleaned = results[index] {
                 pieces.append(cleaned)
                 reused += 1
             } else {
@@ -87,20 +101,7 @@ final class IncrementalCleaner {
     func cancel() {
         jobs.forEach { $0.task.cancel() }
         jobs.removeAll()
-    }
-
-    /// The job's result if it lands before the deadline, nil otherwise.
-    private static func value(of task: Task<String, Never>, before deadline: ContinuousClock.Instant) async -> String? {
-        await withTaskGroup(of: String?.self) { group in
-            group.addTask { await task.value }
-            group.addTask {
-                try? await Task.sleep(until: deadline, clock: .continuous)
-                return nil
-            }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
-        }
+        results.removeAll()
     }
 
     /// Splits text into finished sentences — ending in `.`, `!` or `?` followed by a space or
