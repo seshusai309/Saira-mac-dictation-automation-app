@@ -238,7 +238,7 @@ final class DictationController {
         guard !isEngaged else { return }
         isEngaged = true
         Log.speech.notice("dictation: listening")
-        if Settings.shared.soundEnabled { NSSound(named: "Tink")?.play() }
+        if Settings.shared.soundEnabled { SoftSounds.playStart() }
     }
 
     /// Record / stop from the flow pill.
@@ -471,7 +471,7 @@ final class DictationController {
                 total \(total, privacy: .public)
                 """)
 
-            if Settings.shared.soundEnabled { NSSound(named: "Pop")?.play() }
+            if Settings.shared.soundEnabled { SoftSounds.playDone() }
             state = .idle
             transcript = ""
             recordingStartedAt = nil

@@ -339,7 +339,7 @@ private struct BehaviorSection: View {
                 switchToggle($settings.showIdlePill)
             }
             Divider()
-            SettingRow(title: "Sound effects", detail: "A tick when listening starts, a pop when text lands.") {
+            SettingRow(title: "Sound effects", detail: "A soft two-note chime when listening starts, a low gentle note when your text lands.") {
                 switchToggle($settings.soundEnabled)
             }
             Divider()
