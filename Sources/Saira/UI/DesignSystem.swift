@@ -242,10 +242,6 @@ enum DS {
 
 
 
-        /// The pill's voice ribbon: each bar is the peak of this many ~10 ms level samples, so
-        /// 16 bars show the last ~0.5 s of speech — readable, not a flicker.
-        static let ribbonSamplesPerBar = 3
-
         /// Waveform bars.
         static let barWidth: CGFloat = 3
         static let barGap: CGFloat = 2.5
@@ -307,6 +303,10 @@ enum DS {
         static let bubbleReveal = Animation.easeOut(duration: 0.22).delay(0.18)
         /// Recording dot pulse, one full cycle.
         static let pulse: TimeInterval = 1.1
+        /// The pill's voice bars: how fast they rise to a word, and settle in a pause (seconds,
+        /// exponential time constants — frame-rate independent).
+        static let voiceAttack: Double = 0.04
+        static let voiceRelease: Double = 0.15
         /// Pressed buttons sink this much.
         static let pressScale: CGFloat = 0.97
     }

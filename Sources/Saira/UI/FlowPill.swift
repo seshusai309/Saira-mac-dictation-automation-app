@@ -302,43 +302,51 @@ private struct BehindWindowBlur: NSViewRepresentable {
 
 // MARK: - Voice ribbon
 
-/// Your voice, live: each bar is your actual loudness at one moment, newest on the right,
-/// scrolling left as you talk — so syllables and pauses are visible, not a generic pulse.
+/// Your voice, live and smooth: bars that stay in place and *glide* to your loudness.
 ///
-/// Drawn in one `Canvas` per frame straight from `LevelMeter` (written by the audio thread),
-/// so audio never invalidates SwiftUI and the bars run at the display's refresh rate.
-/// Bars are mirrored around the middle, brighter when louder, and fade toward the old end.
+/// The first version scrolled a bar per ~30 ms of audio, and the discrete step read as stutter.
+/// Now every frame each bar eases toward a target with a time-based exponential (so it's
+/// equally smooth at 60 Hz and 120 Hz): fast attack (~40 ms) so a word lifts the bars at once,
+/// soft release (~150 ms) so a pause settles instead of snapping. Each bar sways at its own
+/// slow rhythm scaled by loudness — still and flat in silence, a flowing wave while you talk,
+/// tallest in the middle.
+///
+/// Drawn in one `Canvas` from `LevelMeter`, which the audio thread writes; nothing here goes
+/// through SwiftUI state, so audio never re-runs the view tree.
 private struct VoiceRibbon: View {
     let meter: LevelMeter
-    /// Design snapshots: draw a fixed sample shape, since an offscreen snapshot has no audio.
+    /// Design snapshots: draw a fixed shape, since an offscreen snapshot has no audio.
     var frozen = false
+
+    /// Per-frame motion state. A plain reference, deliberately not `@State`: it's stepped
+    /// inside the draw closure, where mutating SwiftUI state is a mutation during update.
+    @State private var motion = Motion()
+
+    private final class Motion {
+        var heights = [Double](repeating: 0, count: DS.Size.pillBars)
+        var level = 0.0
+        var lastFrame: Double?
+    }
 
     var body: some View {
         TimelineView(.animation) { timeline in
-            // The frame time must be an input to the drawing: a Canvas that reads nothing
-            // from the timeline is treated as unchanged and never redrawn, and the meter
-            // (a plain reference) isn't something SwiftUI can see change.
-            let frame = timeline.date.timeIntervalSinceReferenceDate
+            // The frame time must be an input to the drawing, or SwiftUI never redraws it.
+            let now = timeline.date.timeIntervalSinceReferenceDate
             Canvas { context, size in
-                _ = frame
-                let count = DS.Size.pillBars
-                let group = DS.Material.ribbonSamplesPerBar
-                let levels = frozen ? Self.sample : stride(from: 0, to: count * group, by: group).map { start in
-                    meter.recent(count * group)[start..<start + group].max() ?? 0
-                }
+                let heights = frozen ? Self.sample : step(to: now)
                 let pitch = DS.Material.barWidth + DS.Material.barGap
                 let midY = size.height / 2
-                for (index, raw) in levels.enumerated() {
-                    // A gentle curve so quiet speech still reads, loud speech hits the top.
-                    let level = CGFloat(pow(Double(max(0, min(1, raw))), 0.8))
-                    let height = max(DS.Material.barFloor, level * size.height)
-                    let x = CGFloat(index) * pitch
-                    let bar = CGRect(x: x, y: midY - height / 2, width: DS.Material.barWidth, height: height)
-                    let age = Double(index) / Double(max(count - 1, 1))      // 0 oldest … 1 newest
-                    let opacity = (0.35 + 0.65 * age) * (0.55 + 0.45 * Double(level))
+                for (index, value) in heights.enumerated() {
+                    let height = max(DS.Material.barFloor, CGFloat(value) * size.height)
+                    let bar = CGRect(
+                        x: CGFloat(index) * pitch, y: midY - height / 2,
+                        width: DS.Material.barWidth, height: height
+                    )
+                    // Warmer and more opaque as it rises; pale and soft at rest.
+                    let tint = DS.Color.amberPale.mix(with: DS.Color.amber, by: min(1, value * 1.6))
                     context.fill(
                         Path(roundedRect: bar, cornerRadius: DS.Material.barWidth / 2),
-                        with: .color((level > 0.55 ? DS.Color.amber : DS.Color.amberPale).opacity(opacity))
+                        with: .color(tint.opacity(0.45 + 0.55 * min(1, value * 1.4)))
                     )
                 }
             }
@@ -346,8 +354,36 @@ private struct VoiceRibbon: View {
         .frame(width: DS.Size.pillBarsWidth, height: DS.Size.pillBarsHeight)
     }
 
-    private static let sample: [Float] = (0..<DS.Size.pillBars).map { index in
-        Float(0.25 + 0.6 * abs(sin(Double(index) * 0.9)))
+    /// Advances the motion to `now` and returns each bar's height, 0…1.
+    private func step(to now: Double) -> [Double] {
+        let dt = min(max(now - (motion.lastFrame ?? now), 0), 1.0 / 20)
+        motion.lastFrame = now
+
+        // Loudness: the peak of the last ~30 ms, eased — quick up, gentle down.
+        let target = Double(meter.recent(3).max() ?? 0)
+        let tau = target > motion.level ? DS.Motion.voiceAttack : DS.Motion.voiceRelease
+        motion.level += (target - motion.level) * (1 - exp(-dt / tau))
+        let level = pow(motion.level, 0.85)
+
+        let count = motion.heights.count
+        let middle = Double(count - 1) / 2
+        for index in 0..<count {
+            // Tallest in the middle, tapering to the ends.
+            let envelope = 1 - 0.6 * pow(abs(Double(index) - middle) / middle, 1.6)
+            // A slow sway unique to each bar; it only shows when there's voice behind it.
+            let rate = 5.0 + Double(index % 5) * 1.3
+            let phase = Double(index) * 1.7
+            let sway = 0.62 + 0.38 * sin(now * rate + phase)
+            let goal = min(1, level * envelope * sway * 1.2)
+            let barTau = goal > motion.heights[index] ? DS.Motion.voiceAttack : DS.Motion.voiceRelease
+            motion.heights[index] += (goal - motion.heights[index]) * (1 - exp(-dt / barTau))
+        }
+        return motion.heights
+    }
+
+    private static let sample: [Double] = (0..<DS.Size.pillBars).map { index in
+        let middle = Double(DS.Size.pillBars - 1) / 2
+        return 0.75 * (1 - 0.6 * abs(Double(index) - middle) / middle) * (0.65 + 0.35 * sin(Double(index) * 1.7))
     }
 }
 

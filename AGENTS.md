@@ -142,9 +142,12 @@ failed`) and `pill: …` log at notice level so the next report can be traced.
 
 **The pill is instant and its only motion is your voice.** Sai asked for no entrance or exit
 animation: the pill appears fully formed when a hold engages and is gone the moment the key is
-released (`.finishing` maps to hidden). `VoiceRibbon` draws the last ~0.5 s of real loudness
-from `LevelMeter`, a lock-protected ring the audio thread writes ~100×/s (one value per ~10 ms
-slice, −55…−12 dBFS). It isn't observable, so audio never invalidates SwiftUI. Its `Canvas`
+released (`.finishing` maps to hidden). `VoiceRibbon` keeps its bars in place and eases each one
+toward the current loudness every frame: fast attack (40 ms), soft release (150 ms),
+time-based so it's identical at 60 and 120 Hz. A first version scrolled a bar per ~30 ms of
+audio, and that discrete step looked like stutter. Loudness comes from `LevelMeter`, a
+lock-protected ring the audio thread writes ~100×/s (one value per ~10 ms slice, −55…−12
+dBFS). It isn't observable, so audio never invalidates SwiftUI. Its `Canvas`
 must read the `TimelineView` date: a Canvas that reads nothing from the timeline is treated as
 unchanged and never redrawn, which left the bars frozen in the first build.
 
