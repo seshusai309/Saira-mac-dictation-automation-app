@@ -89,7 +89,7 @@ first, or a held Space would start typing spaces.
 cancelled anything; the tap passes Esc through otherwise. Don't add Esc as a menu key
 equivalent — it would steal Esc from sheets and fields.
 
-**A quick tap of the shortcut does nothing.** A hold must last `holdThreshold` (300 ms) to
+**A quick tap of the shortcut does nothing.** A hold must last `holdThreshold` (120 ms) to
 engage; before that there's no pill, no sound, and releasing — or pressing another key, like
 fn+arrow — cancels silently. Audio is captured from the first instant, so nothing is lost.
 
@@ -139,6 +139,14 @@ launch-time pill window never drew. A relaunch fixed it only because it made a n
 visible. The dictation lifecycle (`dictation: listening / N characters / nothing heard /
 failed`) and `pill: …` log at notice level so the next report can be traced.
 `SAIRA_PILL_SELFTEST=<dir>` (debug builds) drives the real presenter twice and writes a report.
+
+**The pill is instant and its only motion is your voice.** Sai asked for no entrance or exit
+animation: the pill appears fully formed when a hold engages and is gone the moment the key is
+released (`.finishing` maps to hidden). `VoiceRibbon` draws the last ~0.5 s of real loudness
+from `LevelMeter`, a lock-protected ring the audio thread writes ~100×/s (one value per ~10 ms
+slice, −55…−12 dBFS). It isn't observable, so audio never invalidates SwiftUI. Its `Canvas`
+must read the `TimelineView` date: a Canvas that reads nothing from the timeline is treated as
+unchanged and never redrawn, which left the bars frozen in the first build.
 
 **The pill's window is bigger than the pill.** `HUDPanel` is a fixed transparent canvas; the
 pill animates inside it. Clicks on transparent pixels fall through to the app below.

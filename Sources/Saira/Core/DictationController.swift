@@ -84,6 +84,8 @@ final class DictationController {
 
     private let hotkey = HotkeyMonitor()
     private let capture = AudioCapture()
+    /// Live voice levels for the pill, written by the audio thread.
+    var meter: LevelMeter { capture.meter }
     private let makeEngine: @MainActor () -> any TranscriptionEngine
 
     /// Injected only by tests; production picks a formatter per utterance below.
@@ -108,7 +110,7 @@ final class DictationController {
     /// How long the shortcut must be held before it counts as dictation. Long enough that a
     /// tap of fn (emoji, fn+arrow) never starts anything; short enough not to feel slow.
     /// Audio is captured from the first instant, so nothing said in this window is lost.
-    static let holdThreshold: Duration = .milliseconds(300)
+    static let holdThreshold: Duration = .milliseconds(120)
 
     init(
         formatter: (any TextFormatter)? = nil,

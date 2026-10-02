@@ -15,6 +15,8 @@ final class AudioCapture: @unchecked Sendable {
     private nonisolated(unsafe) var onBuffer: (@Sendable (AudioChunk) -> Void)?
     /// Called on the audio thread with a 0…1 RMS level, for the HUD waveform.
     private nonisolated(unsafe) var onLevel: (@Sendable (Float) -> Void)?
+    /// Fed directly from the audio thread, ~100 levels a second, for the pill's live bars.
+    let meter = LevelMeter()
 
     /// - Parameter microphoneUID: Core Audio UID of the input to record from; empty for the
     ///   system default.
@@ -59,6 +61,7 @@ final class AudioCapture: @unchecked Sendable {
         converter = nil
         onBuffer = nil
         onLevel = nil
+        meter.reset()
         Log.audio.info("capture stopped")
     }
 
@@ -66,6 +69,18 @@ final class AudioCapture: @unchecked Sendable {
 
     private func handle(_ buffer: AVAudioPCMBuffer) {
         onLevel?(Self.rms(of: buffer))
+        // Finer-grained levels for the pill: a value per ~10 ms instead of one per buffer
+        // (~43 ms), so the bars follow syllables, not just phrases.
+        if let channel = buffer.floatChannelData?[0] {
+            let count = Int(buffer.frameLength)
+            let slice = max(1, Int(buffer.format.sampleRate / 100))
+            var start = 0
+            while start < count {
+                let length = min(slice, count - start)
+                meter.push(LevelMeter.level(of: channel + start, count: length))
+                start += length
+            }
+        }
 
         guard let outputFormat else { return }
 

@@ -242,6 +242,10 @@ enum DS {
 
 
 
+        /// The pill's voice ribbon: each bar is the peak of this many ~10 ms level samples, so
+        /// 16 bars show the last ~0.5 s of speech — readable, not a flicker.
+        static let ribbonSamplesPerBar = 3
+
         /// Waveform bars.
         static let barWidth: CGFloat = 3
         static let barGap: CGFloat = 2.5
@@ -279,7 +283,7 @@ enum DS {
         static let pillBottomMargin: CGFloat = 22
         static let pillTextMaxWidth: CGFloat = 240
         static let pillButton: CGFloat = 22
-        static let pillBars = 10
+        static let pillBars = 16
         static let pillBarsHeight: CGFloat = 18
         /// The width the voice bars take, so the transcribing dots can hold the same space.
         static let pillBarsWidth: CGFloat = CGFloat(pillBars) * (Material.barWidth + Material.barGap)

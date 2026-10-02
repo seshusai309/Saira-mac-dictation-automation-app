@@ -11,12 +11,12 @@ import SwiftUI
 /// name. No icon, no timer, no status words, nothing that spins — a turning ring reads as a
 /// loading spinner, the opposite of "go ahead, I'm listening".
 ///
-/// It only appears once you've *meant* to dictate (a long press, the toggle, or a click), pops
-/// up as a small round bubble and stretches into the pill. When the text is typed it lifts
-/// away — there's no "Inserted" popup. Bubbles rising off it are an option in Settings.
+/// **Instant in, instant out.** It appears fully formed the moment a hold engages (120 ms) and
+/// is gone the moment you let go — no pop, no stretch, no fade, by request. The only motion is
+/// the voice itself: `VoiceRibbon` draws the last half-second of your actual loudness, ~100
+/// samples a second, scrolling through the pill, so every word and pause is visible.
 ///
-/// While transcribing, the bars become three amber dots. With Reduce Motion on: no bounce, no
-/// bubbles — just a fade.
+/// Optional bubbles rising off it remain in Settings (off by default).
 struct FlowPill: View {
     @Bindable var controller: DictationController
     /// Pins the pill to one state — design snapshots only; nil in the app.
@@ -26,10 +26,6 @@ struct FlowPill: View {
 
     @State private var settings = Settings.shared
     @State private var isHovering = false
-    /// False while the pill is still a round bubble; true once it has stretched out.
-    @State private var isStretched = false
-    /// The width the pill's content wants, measured, so the stretch has a target.
-    @State private var contentWidth: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var showsHover: Bool { isHovering || hoverOverride }
@@ -49,7 +45,8 @@ struct FlowPill: View {
         case .starting, .listening:
             // Not until the hold is long enough to be deliberate.
             return controller.isEngaged ? .listening : .hidden
-        case .finishing: return .transcribing
+        // Gone the moment you let go — the text arriving is the feedback.
+        case .finishing: return .hidden
         case .error(let message): return .error(message)
         case .idle:
             if let delivery = controller.delivery { return .done(delivery) }
@@ -89,47 +86,16 @@ struct FlowPill: View {
                 Spacer(minLength: 0)
                 if isWorking {
                     workingPill
-                        .transition(bubbleTransition)
                 } else if phase == .idle {
                     idlePill
-                        .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
                 }
             }
             .padding(.bottom, DS.Size.pillBottomMargin)
         }
         .frame(width: DS.Size.pillCanvas.width, height: DS.Size.pillCanvas.height)
-        .animation(reduceMotion ? DS.Motion.standard : DS.Motion.bubblePop, value: isWorking)
-        .animation(DS.Motion.pill, value: phase)
-        .animation(DS.Motion.pill, value: isHovering)
-        .onChange(of: isWorking, initial: true) { _, working in
-            stretch(working)
-        }
-    }
-
-    /// Pops up from below as a bubble; leaves by lifting away and fading, like one let go.
-    private var bubbleTransition: AnyTransition {
-        if reduceMotion { return .opacity }
-        return .asymmetric(
-            insertion: .scale(scale: 0.15, anchor: .bottom).combined(with: .opacity),
-            removal: .scale(scale: 0.6).combined(with: .opacity).combined(with: .offset(y: -24))
-        )
-    }
-
-    /// Round first, then wide: the pill appears as a bubble and stretches a beat later.
-    private func stretch(_ working: Bool) {
-        guard working else {
-            isStretched = false
-            return
-        }
-        if phaseOverride != nil || reduceMotion {
-            isStretched = true
-            return
-        }
-        isStretched = false
-        Task { @MainActor in
-            try? await Task.sleep(for: DS.Motion.bubbleHold)
-            withAnimation(DS.Motion.bubbleStretch) { isStretched = true }
-        }
+        .animation(DS.Motion.quick, value: isHovering)
+        // No transaction animation for phase changes: in and out are instant.
+        .transaction { $0.animation = nil }
     }
 
     private var wordCount: Int {
@@ -139,24 +105,10 @@ struct FlowPill: View {
     // MARK: - The pill
 
     private var workingPill: some View {
-        let height = DS.Size.pillHeight
-        let width = isStretched ? max(contentWidth, height) : height
-
-        return content
+        content
             .padding(.horizontal, DS.Space.roomy)
-            .frame(minWidth: DS.Size.pillMinWidth, minHeight: height)
+            .frame(minWidth: DS.Size.pillMinWidth, minHeight: DS.Size.pillHeight)
             .fixedSize()
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
-            // Hidden while it's a round bubble; fades in once it has nearly stretched out.
-            // Scoped to opacity and blur only — a plain `.animation` here would also delay
-            // the content's *position*, and the words would slide in from one side.
-            .animation(isStretched ? DS.Motion.bubbleReveal : nil) { content in
-                content
-                    .opacity(isStretched ? 1 : 0)
-                    .blur(radius: isStretched ? 0 : 3)
-            }
-            .frame(width: width, height: height)
-            .clipShape(Capsule())
             .background { GlassCapsule() }
             .contentShape(Capsule())
             .onTapGesture {
@@ -165,7 +117,6 @@ struct FlowPill: View {
                     controller.stop()
                 }
             }
-            .animation(DS.Motion.pill, value: contentWidth)
     }
 
     @ViewBuilder
@@ -173,7 +124,7 @@ struct FlowPill: View {
         switch phase {
         case .listening:
             HStack(spacing: DS.Space.base) {
-                VoiceBars(level: controller.level, isActive: controller.state == .listening)
+                VoiceRibbon(meter: controller.meter, frozen: phaseOverride != nil)
                 divider
                 name
             }
@@ -349,51 +300,54 @@ private struct BehindWindowBlur: NSViewRepresentable {
     }
 }
 
-// MARK: - Voice bars
+// MARK: - Voice ribbon
 
-/// The voice, in amber — pale toward the ends and fading out, the way the reference draws it.
-private struct VoiceBars: View {
-    let level: Float
-    let isActive: Bool
+/// Your voice, live: each bar is your actual loudness at one moment, newest on the right,
+/// scrolling left as you talk — so syllables and pauses are visible, not a generic pulse.
+///
+/// Drawn in one `Canvas` per frame straight from `LevelMeter` (written by the audio thread),
+/// so audio never invalidates SwiftUI and the bars run at the display's refresh rate.
+/// Bars are mirrored around the middle, brighter when louder, and fade toward the old end.
+private struct VoiceRibbon: View {
+    let meter: LevelMeter
+    /// Design snapshots: draw a fixed sample shape, since an offscreen snapshot has no audio.
+    var frozen = false
 
     var body: some View {
-        LevelBars(
-            level: level,
-            isActive: isActive,
-            count: DS.Size.pillBars,
-            maxHeight: DS.Size.pillBarsHeight,
-            color: DS.Color.amber
-        )
-        .overlay {
-            // Pale edges, warm center.
-            LinearGradient(
-                colors: [DS.Color.amberPale, DS.Color.amber, DS.Color.amber, DS.Color.amberPale],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .mask {
-                LevelBars(
-                    level: level,
-                    isActive: isActive,
-                    count: DS.Size.pillBars,
-                    maxHeight: DS.Size.pillBarsHeight,
-                    color: .white
-                )
+        TimelineView(.animation) { timeline in
+            // The frame time must be an input to the drawing: a Canvas that reads nothing
+            // from the timeline is treated as unchanged and never redrawn, and the meter
+            // (a plain reference) isn't something SwiftUI can see change.
+            let frame = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { context, size in
+                _ = frame
+                let count = DS.Size.pillBars
+                let group = DS.Material.ribbonSamplesPerBar
+                let levels = frozen ? Self.sample : stride(from: 0, to: count * group, by: group).map { start in
+                    meter.recent(count * group)[start..<start + group].max() ?? 0
+                }
+                let pitch = DS.Material.barWidth + DS.Material.barGap
+                let midY = size.height / 2
+                for (index, raw) in levels.enumerated() {
+                    // A gentle curve so quiet speech still reads, loud speech hits the top.
+                    let level = CGFloat(pow(Double(max(0, min(1, raw))), 0.8))
+                    let height = max(DS.Material.barFloor, level * size.height)
+                    let x = CGFloat(index) * pitch
+                    let bar = CGRect(x: x, y: midY - height / 2, width: DS.Material.barWidth, height: height)
+                    let age = Double(index) / Double(max(count - 1, 1))      // 0 oldest … 1 newest
+                    let opacity = (0.35 + 0.65 * age) * (0.55 + 0.45 * Double(level))
+                    context.fill(
+                        Path(roundedRect: bar, cornerRadius: DS.Material.barWidth / 2),
+                        with: .color((level > 0.55 ? DS.Color.amber : DS.Color.amberPale).opacity(opacity))
+                    )
+                }
             }
         }
-        .mask {
-            LinearGradient(
-                stops: [
-                    .init(color: .white.opacity(0.35), location: 0),
-                    .init(color: .white, location: 0.25),
-                    .init(color: .white, location: 0.75),
-                    .init(color: .white.opacity(0.35), location: 1),
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        }
-        .shadow(color: DS.Color.amber.opacity(0.45), radius: 3)
+        .frame(width: DS.Size.pillBarsWidth, height: DS.Size.pillBarsHeight)
+    }
+
+    private static let sample: [Float] = (0..<DS.Size.pillBars).map { index in
+        Float(0.25 + 0.6 * abs(sin(Double(index) * 0.9)))
     }
 }
 

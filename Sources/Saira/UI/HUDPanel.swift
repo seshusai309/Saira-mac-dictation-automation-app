@@ -111,9 +111,9 @@ final class PillPresenter {
             teardown = nil
             if panel == nil { replacePanel(reason: nil) }
         } else if panel != nil, teardown == nil {
-            // Let the pill's exit animation play before the window goes.
+            // Out at once — there's no exit animation to wait for. (Still a Task, so a
+            // key-down in the same run-loop turn can cancel it and keep the window.)
             teardown = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(450))
                 guard let self, !Task.isCancelled else { return }
                 self.teardown = nil
                 if !self.needsWindow { self.dropPanel() }
@@ -132,7 +132,9 @@ final class PillPresenter {
     /// there is one, but it's empty and transparent — so a quick tap of fn shows nothing.
     private var needsWindow: Bool {
         switch controller.state {
-        case .starting, .listening, .finishing, .error: true
+        case .starting, .listening, .error: true
+        // The pill vanishes on release, so its window goes too.
+        case .finishing: false
         case .idle: controller.delivery != nil || Settings.shared.showIdlePill
         }
     }

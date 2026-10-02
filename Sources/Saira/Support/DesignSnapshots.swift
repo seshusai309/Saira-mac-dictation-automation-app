@@ -224,7 +224,14 @@ enum PillSelfTest {
 
             for round in 1...2 {
                 controller.debugSimulate(.listening, transcript: "hello", level: 0.6)
-                try? await Task.sleep(for: .milliseconds(1_300))
+                // A fake voice into the live meter: syllables with a pause in the middle.
+                for step in 0..<130 {
+                    let t = Double(step) / 100
+                    let speaking = !(0.45...0.6).contains(t)
+                    controller.meter.push(speaking ? Float(0.35 + 0.55 * abs(sin(t * 18))) : 0.02)
+                    try? await Task.sleep(for: .milliseconds(10))
+                }
+                report.append("round \(round): meter newest 12 = \(controller.meter.recent(12).map { String(format: "%.2f", $0) })")
                 let visible = pillWindows().filter(\.isVisible)
                 let onScreen = visible.first?.occlusionState.contains(.visible) ?? false
                 report.append("round \(round): visible pill windows = \(visible.count), macOS says on screen = \(onScreen)")
