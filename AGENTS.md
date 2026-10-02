@@ -162,9 +162,16 @@ then ad-hoc; don't replace that with `--sign -`. To reset a wedged
 grant: `tccutil reset Accessibility ai.sai.whisper` — never omit the bundle ID, which wipes every
 app on the machine — then ⌘Q System Settings before reopening.
 
-**Smart cleanup is the slow part.** On this Mac a cold on-device model took ~4 s even for two
-words and usually timed out, so every dictation waited 4 s for the rule-based result. It's now
-prewarmed at key-down and capped at 2.5 s, and it's off by default for speed. Every dictation
+**Smart cleanup runs while you talk** (`IncrementalCleaner`). Measured on this Mac, one
+on-device model pass costs ~0.6–0.85 s warm and ~6 s cold, so cleaning the whole transcript
+after release meant a 2–6 s wait. Instead, each sentence the engine *commits*
+(`TranscriptionChunk.committed`) is cleaned while the speaker carries on, one at a time. On
+release, finished results are reused, an in-flight one gets 350 ms, and the rest (usually the
+last sentence) gets the instant rule pass. A debug self-test (`SAIRA_CLEANUP_SELFTEST`)
+measured 2.48 s → 0.0014 s after release. Sentence mode tells the model it's seeing part of a
+longer dictation, or it drops leading "And then"/"But" as filler. Tasks and Content templates
+skip it, because they need the whole text to structure. The watchdog prewarms the model every
+60 s while smart cleanup is on. Every dictation
 logs `timing · transcribe … · cleanup … · total …` (category `speech`, needs `--info`) — read
 that before guessing at latency.
 

@@ -15,6 +15,9 @@ import FoundationModels
 ///   of cleaning it — the classic failure when dictation reads as an instruction.
 struct FoundationModelFormatter: TextFormatter {
     var template: DictationTemplate = .everyday
+    /// One sentence from a longer dictation (cleaning while talking). Seen alone, the model
+    /// otherwise drops a leading "And then" or "But" as filler.
+    var isSentenceOfLonger = false
 
     /// Deterministic fallback used on timeout, unavailability, or a rejected response.
     private var fallback: RuleBasedFormatter { RuleBasedFormatter(template: template) }
@@ -66,7 +69,9 @@ struct FoundationModelFormatter: TextFormatter {
 
         do {
             let cleaned = try await withThrowingTaskGroup(of: String.self) { group in
-                group.addTask { [template] in try await Self.clean(trimmed, template: template) }
+                group.addTask { [template, isSentenceOfLonger] in
+                    try await Self.clean(trimmed, template: template, isSentenceOfLonger: isSentenceOfLonger)
+                }
                 group.addTask {
                     try await Task.sleep(for: timeout)
                     throw CleanupError.timedOut
@@ -111,11 +116,20 @@ struct FoundationModelFormatter: TextFormatter {
         }
     }
 
-    private static func clean(_ text: String, template: DictationTemplate) async throws -> String {
+    private static func clean(
+        _ text: String,
+        template: DictationTemplate,
+        isSentenceOfLonger: Bool
+    ) async throws -> String {
         let session = LanguageModelSession(instructions: instructions(for: template))
 
         let response = try await session.respond(
-            to: "Clean up this transcript:\n\n\(text)",
+            // The note goes in the prompt, not the instructions, so the prewarmed instruction
+            // prefix stays identical for both kinds of request.
+            to: isSentenceOfLonger
+                ? "This is one sentence from a longer dictation. Keep its opening words such as "
+                    + "\"And\", \"And then\", \"But\", \"So\". Clean up this sentence:\n\n\(text)"
+                : "Clean up this transcript:\n\n\(text)",
             options: GenerationOptions(
                 // Near-deterministic: this is a formatting pass, not a creative one.
                 temperature: 0.1,

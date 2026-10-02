@@ -250,3 +250,54 @@ enum PillSelfTest {
     }
 }
 #endif
+
+#if DEBUG
+/// Times smart cleanup after "release": the old full pass versus cleaning while talking,
+/// with the real on-device model and a simulated speaker. Debug builds only:
+/// `SAIRA_CLEANUP_SELFTEST=/tmp/x "…/Saira.app/Contents/MacOS/Saira"` → `/tmp/x/report.txt`.
+@MainActor
+enum CleanupSelfTest {
+    static var directory: URL? {
+        ProcessInfo.processInfo.environment["SAIRA_CLEANUP_SELFTEST"].map { URL(fileURLWithPath: $0) }
+    }
+
+    static func run() {
+        guard let directory else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let spoken = [
+            "Um so I need to uh finish the project architecture today.",
+            "And then you know continue working on the rag pipeline.",
+            "I also want to like send the update to Sarah actually to John.",
+            "Uh let's meet on Tuesday at three.",
+        ]
+        Task { @MainActor in
+            var report: [String] = []
+            let full = spoken.joined(separator: " ")
+            FoundationModelFormatter.prewarm(template: .everyday)
+            try? await Task.sleep(for: .seconds(3))
+
+            // Old: one full pass after release.
+            var start = ContinuousClock.now
+            let old = await FoundationModelFormatter(template: .everyday).format(full)
+            report.append("OLD full pass after release: \(start.duration(to: .now))\n  → \(old)")
+
+            // New: sentences cleaned as they're "spoken", ~1.5 s apart; the last arrives at release.
+            let cleaner = IncrementalCleaner(template: .everyday)
+            var committed = ""
+            for sentence in spoken.dropLast() {
+                committed += (committed.isEmpty ? "" : " ") + sentence
+                cleaner.update(committed: committed)
+                try? await Task.sleep(for: .milliseconds(1_500))
+            }
+            start = ContinuousClock.now
+            let new = await cleaner.finish(full: full, budget: .milliseconds(350)) ?? "(nil)"
+            report.append("NEW after release: \(start.duration(to: .now))\n  → \(new)")
+
+            try? report.joined(separator: "\n").write(
+                to: directory.appendingPathComponent("report.txt"), atomically: true, encoding: .utf8
+            )
+            exit(0)
+        }
+    }
+}
+#endif

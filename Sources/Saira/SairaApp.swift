@@ -110,6 +110,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pill.sync()
 
         #if DEBUG
+        if CleanupSelfTest.directory != nil {
+            CleanupSelfTest.run()
+            return
+        }
+        #endif
+
+        #if DEBUG
         // Pill self-test: drives the real presenter and quits — no shortcut, no prompts.
         if PillSelfTest.directory != nil {
             observeForPill()
@@ -164,6 +171,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // means the shortcut is never dead for longer than that.
                 if tick.isMultiple(of: 5) {
                     self.controller.rebuildShortcut(reason: "periodic")
+                }
+                // Keep the on-device model loaded while smart cleanup is on: cold, its first
+                // pass took 6 s on this Mac; warm, 0.6–0.85 s.
+                if tick == 1 || tick.isMultiple(of: 30) {
+                    let settings = Settings.shared
+                    if settings.cleanupEnabled, settings.smartCleanup {
+                        FoundationModelFormatter.prewarm(template: settings.template)
+                    }
                 }
             }
         }

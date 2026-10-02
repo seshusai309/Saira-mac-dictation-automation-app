@@ -106,7 +106,8 @@ sounds, light/dark theme, permission status.
 
 **Private by design.** Speech recognition is Apple's own engine, built into macOS — nothing to
 download, and the app uses about 50 MB of memory. *Smart cleanup* (optional) uses Apple's
-on-device AI model. Nothing ever leaves your Mac.
+on-device AI model, cleaning each sentence while you're still talking, so text appears almost
+instantly when you let go. Nothing ever leaves your Mac.
 
 ---
 

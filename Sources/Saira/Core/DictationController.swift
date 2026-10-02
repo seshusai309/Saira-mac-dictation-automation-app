@@ -90,6 +90,9 @@ final class DictationController {
     private let formatter: (any TextFormatter)?
 
     private var engine: (any TranscriptionEngine)?
+    /// Cleans finished sentences while the speaker is still talking. Nil when smart cleanup
+    /// is off, unavailable, or the template needs the whole text at once.
+    private var cleaner: IncrementalCleaner?
     private var consumeTask: Task<Void, Never>?
     private var feedTask: Task<Void, Never>?
     private var audioContinuation: AsyncStream<AudioChunk>.Continuation?
@@ -308,6 +311,13 @@ final class DictationController {
 
         isEngaged = false
         dictationGeneration += 1
+        cleaner?.cancel()
+        cleaner = nil
+        let template = Settings.shared.template
+        if formatter == nil, Settings.shared.cleanupEnabled, Settings.shared.smartCleanup,
+           FoundationModelFormatter.isAvailable, IncrementalCleaner.supports(template) {
+            cleaner = IncrementalCleaner(template: template)
+        }
         if Settings.shared.cleanupEnabled, Settings.shared.smartCleanup {
             FoundationModelFormatter.prewarm(template: Settings.shared.template)
         }
@@ -375,6 +385,9 @@ final class DictationController {
                     do {
                         for try await chunk in chunks {
                             self.transcript = chunk.text
+                            if let committed = chunk.committed {
+                                self.cleaner?.update(committed: committed)
+                            }
                         }
                     } catch {
                         self.fail(error.localizedDescription)
@@ -420,9 +433,18 @@ final class DictationController {
             }
 
             let template = Settings.shared.template
-            let cleaned = Settings.shared.cleanupEnabled
-                ? await activeFormatter(for: template).format(raw)
-                : raw
+            let cleaned: String
+            if !Settings.shared.cleanupEnabled {
+                cleaned = raw
+            } else if let cleaner,
+                      // Most of it was cleaned while you talked: a short grace period for the
+                      // sentence in flight, then the instant rules for the rest.
+                      let fast = await cleaner.finish(full: raw, budget: .milliseconds(350)) {
+                cleaned = fast
+            } else {
+                cleaned = await activeFormatter(for: template).format(raw)
+            }
+            self.cleaner = nil
 
             // The dictionary runs last, and runs regardless of the cleanup setting. Biasing
             // only raises the odds of the right word; this is the pass that guarantees it,
@@ -494,6 +516,8 @@ final class DictationController {
     }
 
     private func cancelDictation() {
+        cleaner?.cancel()
+        cleaner = nil
         capture.stop()
         audioContinuation?.finish()
         audioContinuation = nil
@@ -577,6 +601,8 @@ final class DictationController {
     #endif
 
     private func fail(_ message: String) {
+        cleaner?.cancel()
+        cleaner = nil
         Log.app.error("dictation failed: \(message, privacy: .public)")
         capture.stop()
         audioContinuation?.finish()

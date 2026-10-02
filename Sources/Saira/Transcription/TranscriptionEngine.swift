@@ -19,6 +19,9 @@ struct TranscriptionChunk: Sendable {
     let text: String
     /// `true` once the engine has committed everything it will emit for this session.
     let isFinal: Bool
+    /// The part of `text` the engine won't revise any more. Smart cleanup starts on finished
+    /// sentences in here while the speaker is still talking. Nil if the engine doesn't say.
+    var committed: String? = nil
 }
 
 /// The seam between the controller and speech recognition.

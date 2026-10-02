@@ -71,7 +71,8 @@ actor AppleSpeechEngine: TranscriptionEngine {
                 for try await result in transcriber.results {
                     guard let self else { break }
                     let snapshot = await self.absorb(result)
-                    chunkContinuation.yield(TranscriptionChunk(text: snapshot, isFinal: false))
+                    let committed = await self.finalizedText.trimmingCharacters(in: .whitespaces)
+                    chunkContinuation.yield(TranscriptionChunk(text: snapshot, isFinal: false, committed: committed))
                 }
                 let final = await self?.finalizedText ?? ""
                 chunkContinuation.yield(TranscriptionChunk(text: final, isFinal: true))
